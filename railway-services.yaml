@@ -1,0 +1,103 @@
+# Railway Services Configuration Template
+# Use this as a reference for creating services in Railway UI
+
+services:
+  # Database Services
+  postgres:
+    name: fantasy-football-db
+    type: database
+    provider: postgresql
+    version: "14"
+    config:
+      max_connections: 100
+      shared_preload_libraries: pg_stat_statements
+    environment:
+      POSTGRES_DB: fantasy_football_db
+
+  redis:
+    name: fantasy-football-redis
+    type: database
+    provider: redis
+    version: "7"
+    config:
+      maxmemory_policy: allkeys-lru
+      
+  # Application Services
+  backend:
+    name: fantasy-football-backend
+    type: web
+    source: 
+      repo: your-github-username/fantasyWebapp
+      branch: Railway
+      root_directory: backend
+    build:
+      nixpacks_config: backend/nixpacks.toml
+    deploy:
+      start_command: npm start
+      healthcheck_path: /health
+    environment:
+      NODE_ENV: production
+      PORT: $PORT
+      DATABASE_URL: ${{Postgres.DATABASE_URL}}
+      REDIS_URL: ${{Redis.REDIS_URL}}
+      # Add other environment variables as needed
+    
+  ai-service:
+    name: fantasy-football-ai
+    type: web
+    source:
+      repo: your-github-username/fantasyWebapp
+      branch: Railway
+      root_directory: ai-service
+    build:
+      nixpacks_config: ai-service/nixpacks.toml
+    deploy:
+      start_command: npm start
+      healthcheck_path: /health
+    environment:
+      NODE_ENV: production
+      PORT: $PORT
+      REDIS_URL: ${{Redis.REDIS_URL}}
+      # Add AI provider keys and other environment variables
+      
+  frontend:
+    name: fantasy-football-frontend
+    type: web
+    source:
+      repo: your-github-username/fantasyWebapp
+      branch: Railway
+      root_directory: frontend
+    build:
+      nixpacks_config: frontend/nixpacks.toml
+    deploy:
+      start_command: npm start
+    environment:
+      NODE_ENV: production
+      NEXTAUTH_URL: ${{RAILWAY_STATIC_URL}}
+      DATABASE_URL: ${{Postgres.DATABASE_URL}}
+      # Add OAuth and other environment variables
+
+# Service Dependencies
+dependencies:
+  backend:
+    - postgres
+    - redis
+  ai-service:
+    - redis
+    - backend  # For service discovery
+  frontend:
+    - postgres  # For NextAuth sessions
+    - backend
+    - ai-service
+
+# Network Configuration
+networking:
+  internal:
+    # Services can communicate using Railway internal URLs
+    backend_url: ${{Backend.RAILWAY_PRIVATE_DOMAIN}}:${{Backend.PORT}}
+    ai_service_url: ${{AI-Service.RAILWAY_PRIVATE_DOMAIN}}:${{AI-Service.PORT}}
+  external:
+    # Public URLs for frontend and API access
+    frontend_url: ${{Frontend.RAILWAY_STATIC_URL}}
+    backend_api_url: ${{Backend.RAILWAY_STATIC_URL}}
+    ai_api_url: ${{AI-Service.RAILWAY_STATIC_URL}}
