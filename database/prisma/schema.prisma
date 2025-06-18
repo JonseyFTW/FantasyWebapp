@@ -1,0 +1,343 @@
+// This is your Prisma schema file
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  displayName   String   @map("display_name")
+  avatarUrl     String?  @map("avatar_url")
+  sleeperUserId String?  @unique @map("sleeper_user_id")
+  preferences   Json?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  userLeagues         UserLeague[]
+  rivalriesAsUser1    LeagueRivalry[] @relation("RivalryUser1")
+  rivalriesAsUser2    LeagueRivalry[] @relation("RivalryUser2")
+  chatMessages        LeagueChat[]
+  playerRecommendations PlayerRecommendation[]
+  aiAnalyses          AIAnalysis[]
+  tradeAnalysesAsTeam1 TradeAnalysis[] @relation("TradeTeam1")
+  tradeAnalysesAsTeam2 TradeAnalysis[] @relation("TradeTeam2")
+  notifications       Notification[]
+  achievements        UserAchievement[]
+  weeklyAnalytics     WeeklyAnalytics[]
+
+  // NextAuth.js required fields
+  accounts Account[]
+  sessions Session[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model League {
+  id              String   @id @default(cuid())
+  sleeperLeagueId String   @unique @map("sleeper_league_id")
+  name            String
+  season          Int
+  totalRosters    Int      @map("total_rosters")
+  scoringFormat   String   @map("scoring_format")
+  settings        Json
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  userLeagues      UserLeague[]
+  rivalries        LeagueRivalry[]
+  chatMessages     LeagueChat[]
+  aiAnalyses       AIAnalysis[]
+  tradeAnalyses    TradeAnalysis[]
+  powerRankings    PowerRanking[]
+  playoffScenarios PlayoffScenario[]
+  weeklyAnalytics  WeeklyAnalytics[]
+
+  @@map("leagues")
+}
+
+model UserLeague {
+  id              String   @id @default(cuid())
+  userId          String   @map("user_id")
+  leagueId        String   @map("league_id")
+  sleeperRosterId String   @map("sleeper_roster_id")
+  role            String   @default("member")
+  joinedAt        DateTime @default(now()) @map("joined_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  league League @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, leagueId])
+  @@map("user_leagues")
+}
+
+model LeagueRivalry {
+  id              String   @id @default(cuid())
+  leagueId        String   @map("league_id")
+  user1Id         String   @map("user1_id")
+  user2Id         String   @map("user2_id")
+  rivalryName     String?  @map("rivalry_name")
+  isActive        Boolean  @default(true) @map("is_active")
+  headToHeadRecord Json    @map("head_to_head_record")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  league League @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  user1  User   @relation("RivalryUser1", fields: [user1Id], references: [id], onDelete: Cascade)
+  user2  User   @relation("RivalryUser2", fields: [user2Id], references: [id], onDelete: Cascade)
+
+  @@unique([leagueId, user1Id, user2Id])
+  @@map("league_rivalries")
+}
+
+model LeagueChat {
+  id          String   @id @default(cuid())
+  leagueId    String   @map("league_id")
+  userId      String   @map("user_id")
+  message     String
+  messageType String   @default("chat") @map("message_type")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  league League @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("league_chat")
+}
+
+model Player {
+  id               String  @id @default(cuid())
+  sleeperPlayerId  String  @unique @map("sleeper_player_id")
+  firstName        String  @map("first_name")
+  lastName         String  @map("last_name")
+  fullName         String  @map("full_name")
+  position         String
+  team             String?
+  age              Int?
+  experience       Int?
+  status           String  @default("active")
+  fantasyPositions Json    @map("fantasy_positions")
+  metadata         Json?
+
+  // Relations
+  stats           PlayerStats[]
+  projections     PlayerProjection[]
+  recommendations PlayerRecommendation[]
+
+  @@map("players")
+}
+
+model PlayerStats {
+  id            String   @id @default(cuid())
+  playerId      String   @map("player_id")
+  season        Int
+  week          Int?
+  stats         Json
+  fantasyPoints Json     @map("fantasy_points")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([playerId, season, week])
+  @@map("player_stats")
+}
+
+model PlayerProjection {
+  id              String   @id @default(cuid())
+  playerId        String   @map("player_id")
+  season          Int
+  week            Int
+  projectedStats  Json     @map("projected_stats")
+  projectedPoints Json     @map("projected_points")
+  confidence      Float
+  source          String
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([playerId, season, week, source])
+  @@map("player_projections")
+}
+
+model PlayerRecommendation {
+  id                 String   @id @default(cuid())
+  userId             String   @map("user_id")
+  playerId           String   @map("player_id")
+  recommendationType String   @map("recommendation_type")
+  confidence         Float
+  reasoning          String
+  context            Json
+  createdAt          DateTime @default(now()) @map("created_at")
+  expiresAt          DateTime @map("expires_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@map("player_recommendations")
+}
+
+model AIAnalysis {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  leagueId     String?  @map("league_id")
+  analysisType String   @map("analysis_type")
+  input        Json
+  output       Json
+  metadata     Json
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  league League? @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+
+  @@map("ai_analyses")
+}
+
+model TradeAnalysis {
+  id           String   @id @default(cuid())
+  leagueId     String   @map("league_id")
+  team1UserId  String   @map("team1_user_id")
+  team2UserId  String   @map("team2_user_id")
+  team1Players Json     @map("team1_players")
+  team2Players Json     @map("team2_players")
+  analysis     Json
+  aiModelUsed  String   @map("ai_model_used")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  league    League @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  team1User User   @relation("TradeTeam1", fields: [team1UserId], references: [id], onDelete: Cascade)
+  team2User User   @relation("TradeTeam2", fields: [team2UserId], references: [id], onDelete: Cascade)
+
+  @@map("trade_analyses")
+}
+
+model PowerRanking {
+  id           String   @id @default(cuid())
+  leagueId     String   @map("league_id")
+  week         Int
+  rankings     Json
+  methodology  String
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  league League @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+
+  @@unique([leagueId, week])
+  @@map("power_rankings")
+}
+
+model PlayoffScenario {
+  id             String   @id @default(cuid())
+  leagueId       String   @map("league_id")
+  week           Int
+  scenarios      Json
+  simulationRuns Int      @map("simulation_runs")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  league League @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+
+  @@unique([leagueId, week])
+  @@map("playoff_scenarios")
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  type      String
+  title     String
+  message   String
+  actionUrl String?   @map("action_url")
+  read      Boolean   @default(false)
+  priority  String    @default("medium")
+  createdAt DateTime  @default(now()) @map("created_at")
+  expiresAt DateTime? @map("expires_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model Achievement {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String
+  category    String
+  points      Int      @default(0)
+  iconUrl     String?  @map("icon_url")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  userAchievements UserAchievement[]
+
+  @@map("achievements")
+}
+
+model UserAchievement {
+  id            String   @id @default(cuid())
+  userId        String   @map("user_id")
+  achievementId String   @map("achievement_id")
+  earnedAt      DateTime @default(now()) @map("earned_at")
+  season        Int?
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, achievementId, season])
+  @@map("user_achievements")
+}
+
+model WeeklyAnalytics {
+  id                 String   @id @default(cuid())
+  leagueId           String   @map("league_id")
+  userId             String   @map("user_id")
+  week               Int
+  performanceMetrics Json     @map("performance_metrics")
+  powerRanking       Int      @map("power_ranking")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  league League @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([leagueId, userId, week])
+  @@map("weekly_analytics")
+}
