@@ -4,7 +4,7 @@ import { StartSitAnalyzer } from '../agents/start-sit-analyzer';
 import { TradeAnalyzer } from '../agents/trade-analyzer';
 import { WaiverWireAnalyzer } from '../agents/waiver-wire-analyzer';
 import { LineupOptimizer } from '../agents/lineup-optimizer';
-import { validateSchema } from '@shared/utils/validation';
+import { validateSchema } from '@fantasy-app/shared/utils/validation';
 import { z } from 'zod';
 import { AIProvider } from '../types/ai-providers';
 

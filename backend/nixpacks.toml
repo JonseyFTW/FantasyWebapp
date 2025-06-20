@@ -2,6 +2,7 @@ providers = ["node"]
 
 [build]
 cmds = [
+  "cd ../shared && npm ci && npm run build",
   "npm ci",
   "npx prisma generate",
   "npm run build"

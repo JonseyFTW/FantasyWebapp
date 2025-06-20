@@ -38,7 +38,8 @@
       "mcp__railway-mcp__deployment_list",
       "mcp__railway-mcp__deployment_logs",
       "mcp__railway-mcp__deployment_trigger",
-      "mcp__railway-mcp__deployment_status"
+      "mcp__railway-mcp__deployment_status",
+      "mcp__railway-mcp__service_info"
     ],
     "deny": []
   }
