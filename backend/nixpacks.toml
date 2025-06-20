@@ -2,14 +2,14 @@ providers = ["node"]
 
 [build]
 cmds = [
-  "cd ../shared && npm ci && npm run build",
-  "npm ci",
-  "npx prisma generate",
-  "npm run build"
+  "cd shared && npm ci && npm run build",
+  "cd backend && npm ci",
+  "cd backend && npx prisma generate",
+  "cd backend && npm run build"
 ]
 
 [start]
-cmd = "npm start"
+cmd = "cd backend && npm start"
 
 [variables]
 NODE_ENV = "production"

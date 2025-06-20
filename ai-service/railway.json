@@ -2,10 +2,11 @@
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
     "builder": "NIXPACKS",
-    "buildCommand": "npm run build",
+    "buildCommand": "cd ai-service && npm run build",
     "watchPatterns": [
-      "**/*.ts",
-      "**/*.js"
+      "ai-service/**/*.ts",
+      "ai-service/**/*.js",
+      "shared/**/*.ts"
     ]
   },
   "deploy": {
@@ -13,7 +14,7 @@
     "sleepApplication": false,
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10,
-    "startCommand": "npm start",
+    "startCommand": "cd ai-service && npm start",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 300
   }

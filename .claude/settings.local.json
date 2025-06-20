@@ -44,7 +44,11 @@
       "Bash(railway --version)",
       "Bash(railway login:*)",
       "Bash(npm run type-check:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(railway:*)",
+      "Bash(find:*)",
+      "Bash(npm ci:*)"
     ],
     "deny": []
   }
