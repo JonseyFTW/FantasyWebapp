@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
-import { User } from '@shared/types/user';
+import { User } from '@fantasy-app/shared';
 
 const prisma = new PrismaClient();
 
@@ -101,7 +101,12 @@ export async function authenticateToken(
       throw new AuthenticationError('User not found');
     }
 
-    req.user = user;
+    req.user = {
+      ...user,
+      avatarUrl: user.avatarUrl ?? undefined,
+      sleeperUserId: user.sleeperUserId ?? undefined,
+      preferences: user.preferences as User['preferences'] ?? undefined,
+    };
     req.userId = user.id;
     next();
   } catch (error) {

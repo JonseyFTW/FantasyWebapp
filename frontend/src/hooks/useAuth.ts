@@ -1,7 +1,7 @@
 import { useSession, signIn, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useCallback } from 'react';
-import type { User } from '@shared/types/user';
+import type { User } from '@fantasy-app/shared';
 
 export interface AuthUser extends User {
   id: string;
