@@ -45,7 +45,7 @@ export function createToken(payload: { userId: string; email: string }): string 
     secret,
     {
       expiresIn: process.env.JWT_EXPIRES_IN || '7d',
-    }
+    } as jwt.SignOptions
   );
 }
 

@@ -3,6 +3,7 @@ import { AIManager } from '../services/ai-manager';
 import { StartSitAnalyzer } from '../agents/start-sit-analyzer';
 import { TradeAnalyzer } from '../agents/trade-analyzer';
 import { WaiverWireAnalyzer } from '../agents/waiver-wire-analyzer';
+import { LineupOptimizer } from '../agents/lineup-optimizer';
 import { validateSchema } from '@shared/utils/validation';
 import { z } from 'zod';
 import { AIProvider } from '../types/ai-providers';
@@ -56,6 +57,28 @@ const WaiverWireRequestSchema = z.object({
   preferredProvider: z.nativeEnum(AIProvider).optional(),
 });
 
+const LineupOptimizerRequestSchema = z.object({
+  userId: z.string().min(1),
+  leagueId: z.string().min(1),
+  week: z.number().int().min(1).max(18),
+  availablePlayers: z.array(z.string()).min(1),
+  rosterSlots: z.array(z.string()).min(1),
+  userPreferences: z.object({
+    riskTolerance: z.enum(['conservative', 'moderate', 'aggressive']).optional(),
+    prioritizeFloor: z.boolean().optional(),
+    stackPreference: z.enum(['qb_wr', 'qb_te', 'none']).optional(),
+    avoidOpponents: z.boolean().optional(),
+    weatherConcerns: z.boolean().optional(),
+  }).optional(),
+  constraints: z.object({
+    mustStart: z.array(z.string()).optional(),
+    cannotStart: z.array(z.string()).optional(),
+    maxPlayersPerTeam: z.number().int().min(1).optional(),
+    minProjectedPoints: z.number().min(0).optional(),
+  }).optional(),
+  preferredProvider: z.nativeEnum(AIProvider).optional(),
+});
+
 const QuickAnalysisSchema = z.object({
   playerId: z.string().min(1),
   leagueId: z.string().min(1),
@@ -68,6 +91,7 @@ export function createAIRoutes(aiManager: AIManager): Router {
   const startSitAnalyzer = new StartSitAnalyzer(aiManager);
   const tradeAnalyzer = new TradeAnalyzer(aiManager);
   const waiverWireAnalyzer = new WaiverWireAnalyzer(aiManager);
+  const lineupOptimizer = new LineupOptimizer(aiManager);
 
   /**
    * POST /ai/start-sit
@@ -118,7 +142,16 @@ export function createAIRoutes(aiManager: AIManager): Router {
       
       console.log(`Trade analysis requested between ${request.team1UserId} and ${request.team2UserId}`);
       
-      const analysis = await tradeAnalyzer.analyzeTrade(request, request.preferredProvider);
+      // Convert deadline string to Date if provided
+      const processedRequest = {
+        ...request,
+        tradeContext: request.tradeContext ? {
+          ...request.tradeContext,
+          deadline: request.tradeContext.deadline ? new Date(request.tradeContext.deadline) : undefined,
+        } : undefined,
+      };
+      
+      const analysis = await tradeAnalyzer.analyzeTrade(processedRequest, request.preferredProvider);
       
       res.json({
         success: true,
@@ -176,6 +209,45 @@ export function createAIRoutes(aiManager: AIManager): Router {
         error: {
           code: 'AI_SERVICE_ERROR',
           message: error instanceof Error ? error.message : 'Waiver wire analysis failed',
+        },
+        metadata: {
+          timestamp: new Date().toISOString(),
+          requestId: req.headers['x-request-id'] || 'unknown',
+          version: '1.0.0',
+        },
+      });
+    }
+  });
+
+  /**
+   * POST /ai/lineup-optimizer
+   * Optimize lineup for maximum expected points
+   */
+  router.post('/lineup-optimizer', async (req, res) => {
+    try {
+      const request = validateSchema(LineupOptimizerRequestSchema, req.body);
+      
+      console.log(`Lineup optimization requested for user ${request.userId}`);
+      
+      const optimization = await lineupOptimizer.optimizeLineup(request, request.preferredProvider);
+      
+      res.json({
+        success: true,
+        data: optimization,
+        metadata: {
+          timestamp: new Date().toISOString(),
+          requestId: req.headers['x-request-id'] || 'unknown',
+          version: '1.0.0',
+          processingTime: Date.now() - parseInt(req.headers['x-start-time'] as string || '0'),
+        },
+      });
+    } catch (error) {
+      console.error('Lineup optimization error:', error);
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'AI_SERVICE_ERROR',
+          message: error instanceof Error ? error.message : 'Lineup optimization failed',
         },
         metadata: {
           timestamp: new Date().toISOString(),

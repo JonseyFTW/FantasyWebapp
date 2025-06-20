@@ -46,6 +46,28 @@ export interface WaiverWireRequest {
   preferredProvider?: 'openai' | 'claude' | 'gemini';
 }
 
+export interface LineupOptimizerRequest {
+  userId: string;
+  leagueId: string;
+  week: number;
+  availablePlayers: string[];
+  rosterSlots: string[];
+  userPreferences?: {
+    riskTolerance?: 'conservative' | 'moderate' | 'aggressive';
+    prioritizeFloor?: boolean;
+    stackPreference?: 'qb_wr' | 'qb_te' | 'none';
+    avoidOpponents?: boolean;
+    weatherConcerns?: boolean;
+  };
+  constraints?: {
+    mustStart?: string[];
+    cannotStart?: string[];
+    maxPlayersPerTeam?: number;
+    minProjectedPoints?: number;
+  };
+  preferredProvider?: 'openai' | 'claude' | 'gemini';
+}
+
 export interface QuickAnalysisRequest {
   playerId: string;
   leagueId: string;
@@ -127,6 +149,14 @@ export class AIClient {
     const response = await this.client.post<ApiResponse>('/waiver-wire', request);
     if (!response.data.success) {
       throw new Error(response.data.error?.message || 'Waiver wire analysis failed');
+    }
+    return response.data.data;
+  }
+
+  async optimizeLineup(request: LineupOptimizerRequest): Promise<any> {
+    const response = await this.client.post<ApiResponse>('/lineup-optimizer', request);
+    if (!response.data.success) {
+      throw new Error(response.data.error?.message || 'Lineup optimization failed');
     }
     return response.data.data;
   }

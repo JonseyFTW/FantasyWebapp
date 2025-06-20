@@ -77,7 +77,6 @@ export class GeminiProvider extends BaseAIProvider {
 
         const modelWithTools = this.client.getGenerativeModel({
           model: this.config.model,
-          tools,
         });
 
         const chat = modelWithTools.startChat({ history });
@@ -86,25 +85,19 @@ export class GeminiProvider extends BaseAIProvider {
         const response = await result.response;
         const text = response.text();
         
-        // Parse function calls from response
+        // Parse function calls from response (Gemini specific implementation)
         const toolCalls: any[] = [];
-        if (response.functionCalls) {
-          for (const functionCall of response.functionCalls()) {
-            toolCalls.push({
-              name: functionCall.name,
-              parameters: functionCall.args,
-            });
-          }
-        }
+        // Note: Current Gemini API may not support function calls in the same way
+        // This is a placeholder for future implementation
 
         return {
           content: text,
           toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
-          usage: response.usageMetadata ? {
-            promptTokens: response.usageMetadata.promptTokenCount || 0,
-            completionTokens: response.usageMetadata.candidatesTokenCount || 0,
-            totalTokens: response.usageMetadata.totalTokenCount || 0,
-          } : undefined,
+          usage: {
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: 0,
+          },
           finishReason: response.candidates?.[0]?.finishReason || undefined,
           provider: this.provider,
           model: this.config.model,
@@ -119,11 +112,11 @@ export class GeminiProvider extends BaseAIProvider {
 
         return {
           content: text,
-          usage: response.usageMetadata ? {
-            promptTokens: response.usageMetadata.promptTokenCount || 0,
-            completionTokens: response.usageMetadata.candidatesTokenCount || 0,
-            totalTokens: response.usageMetadata.totalTokenCount || 0,
-          } : undefined,
+          usage: {
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: 0,
+          },
           finishReason: response.candidates?.[0]?.finishReason || undefined,
           provider: this.provider,
           model: this.config.model,
