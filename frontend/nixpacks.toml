@@ -1,5 +1,4 @@
-[providers]
-node = "18.x"
+providers = ["node"]
 
 [build]
 cmds = [
