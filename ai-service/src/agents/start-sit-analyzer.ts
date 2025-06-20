@@ -8,9 +8,9 @@ export interface StartSitRequest {
   playerIds: string[];
   rosterSlots: string[];
   userPreferences?: {
-    riskTolerance: 'conservative' | 'moderate' | 'aggressive';
-    prioritizeUpside: boolean;
-    avoidInjuredPlayers: boolean;
+    riskTolerance?: 'conservative' | 'moderate' | 'aggressive';
+    prioritizeUpside?: boolean;
+    avoidInjuredPlayers?: boolean;
   };
 }
 

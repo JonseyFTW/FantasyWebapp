@@ -1,0 +1,64 @@
+# Backend Dockerfile
+FROM node:18-slim AS base
+
+# Install dependencies only when needed
+FROM base AS deps
+RUN apt-get update && apt-get install -y \
+    openssl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+
+# Install shared dependencies first
+COPY shared/package*.json ./shared/
+COPY package*.json ./
+RUN npm ci
+
+# Copy shared source and build it
+COPY shared/ ./shared/
+WORKDIR /app/shared
+RUN npm run build
+
+# Install backend dependencies
+WORKDIR /app
+COPY backend/package*.json ./backend/
+RUN cd backend && npm ci
+
+# Rebuild the source code only when needed
+FROM base AS builder
+WORKDIR /app
+COPY --from=deps /app/ ./
+COPY backend/ ./backend/
+
+# Build backend
+WORKDIR /app/backend
+RUN npm run build
+
+# Production image
+FROM base AS runner
+RUN apt-get update && apt-get install -y \
+    openssl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+
+ENV NODE_ENV production
+
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 backend
+
+# Copy built application
+COPY --from=builder --chown=backend:nodejs /app/backend/dist ./dist
+COPY --from=builder --chown=backend:nodejs /app/backend/package*.json ./
+COPY --from=builder --chown=backend:nodejs /app/backend/prisma ./prisma
+COPY --from=builder --chown=backend:nodejs /app/shared/dist ./shared/dist
+COPY --from=builder --chown=backend:nodejs /app/shared/package*.json ./shared/
+
+# Install only production dependencies
+RUN npm install --omit=dev && npm cache clean --force
+
+USER backend
+
+EXPOSE 4000
+
+CMD ["npm", "start"]

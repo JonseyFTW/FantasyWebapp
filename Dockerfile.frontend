@@ -1,0 +1,61 @@
+# Frontend Dockerfile
+FROM node:18-alpine AS base
+
+# Install dependencies only when needed
+FROM base AS deps
+RUN apk add --no-cache libc6-compat openssl-dev
+WORKDIR /app
+
+# Install shared dependencies first
+COPY shared/package*.json ./shared/
+COPY package*.json ./
+RUN npm ci
+
+# Copy shared source and build it
+COPY shared/ ./shared/
+WORKDIR /app/shared
+RUN npm run build
+
+# Install frontend dependencies
+WORKDIR /app
+COPY frontend/package*.json ./frontend/
+RUN cd frontend && npm ci
+
+# Rebuild the source code only when needed
+FROM base AS builder
+RUN apk add --no-cache libc6-compat openssl-dev
+WORKDIR /app
+COPY --from=deps /app/ ./
+COPY frontend/ ./frontend/
+
+# Copy database schema and generate Prisma client
+COPY database/prisma ./frontend/prisma/
+WORKDIR /app/frontend
+RUN npx prisma generate
+
+# Build frontend
+RUN npm run build
+
+# Production image, copy all the files and run next
+FROM base AS runner
+RUN apk add --no-cache libc6-compat openssl-dev
+WORKDIR /app
+
+ENV NODE_ENV production
+
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+# Copy built application
+COPY --from=builder /app/frontend/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/frontend/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/frontend/.next/static ./.next/static
+
+USER nextjs
+
+EXPOSE 3000
+
+ENV PORT 3000
+ENV HOSTNAME "0.0.0.0"
+
+CMD ["node", "server.js"]

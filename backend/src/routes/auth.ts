@@ -320,4 +320,4 @@ router.post('/link-sleeper', authenticateToken, async (req: AuthenticatedRequest
   }
 });
 
-export default router;
+export { router as authRoutes };

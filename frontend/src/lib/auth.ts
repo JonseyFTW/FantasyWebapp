@@ -1,12 +1,12 @@
 import { NextAuthOptions } from 'next-auth';
-import { PrismaAdapter } from '@next-auth/prisma-adapter';
+import { PrismaAdapter } from '@auth/prisma-adapter';
 import GoogleProvider from 'next-auth/providers/google';
 import DiscordProvider from 'next-auth/providers/discord';
 import { prisma } from './prisma';
 import type { User } from '@shared/types/user';
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
+  adapter: PrismaAdapter(prisma) as any,
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -47,9 +47,9 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       // Send properties to the client
-      if (token) {
-        session.user.id = token.userId as string;
-        session.accessToken = token.accessToken as string;
+      if (token && session.user) {
+        (session.user as any).id = token.userId as string;
+        (session as any).accessToken = token.accessToken as string;
       }
       return session;
     },

@@ -9,9 +9,9 @@ export interface WaiverWireRequest {
   currentRoster: string[]; // Current player IDs
   rosterNeeds?: string[]; // Positions needing help
   userPreferences?: {
-    riskTolerance: 'conservative' | 'moderate' | 'aggressive';
-    focusOnUpside: boolean;
-    prioritizeImmediateHelp: boolean;
+    riskTolerance?: 'conservative' | 'moderate' | 'aggressive';
+    focusOnUpside?: boolean;
+    prioritizeImmediateHelp?: boolean;
     maxBidPercentage?: number; // Max % of FAAB to spend on one player
   };
 }

@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rg:*)",
+      "Bash(touch:*)",
+      "Bash(cp:*)",
+      "Bash(ls:*)",
+      "Bash(make:*)",
+      "Bash(docker-compose:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker exec:*)",
+      "Bash(npm install)",
+      "Bash(npm run build:*)",
+      "Bash(npx prisma:*)",
+      "Bash(docker run:*)",
+      "Bash(npm run dev:*)",
+      "Bash(pkill:*)",
+      "Bash(curl:*)",
+      "Bash(docker stop:*)",
+      "Bash(docker rm:*)",
+      "Bash(npm install:*)",
+      "Bash(grep:*)"
+    ],
+    "deny": []
+  }
+}

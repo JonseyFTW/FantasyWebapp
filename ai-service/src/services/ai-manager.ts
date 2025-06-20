@@ -41,7 +41,6 @@ export class AIManager {
         host: config.redis.host,
         port: config.redis.port,
         password: config.redis.password,
-        retryDelayOnFailover: 100,
         maxRetriesPerRequest: 3,
       });
     }

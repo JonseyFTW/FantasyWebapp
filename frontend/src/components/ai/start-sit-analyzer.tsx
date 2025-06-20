@@ -131,7 +131,7 @@ export function StartSitAnalyzer({
               <label className="text-sm font-medium mb-2 block">
                 Risk Tolerance
               </label>
-              <Select value={riskTolerance} onValueChange={setRiskTolerance}>
+              <Select value={riskTolerance} onValueChange={(value) => setRiskTolerance(value as 'conservative' | 'moderate' | 'aggressive')}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -147,7 +147,7 @@ export function StartSitAnalyzer({
               <label className="text-sm font-medium mb-2 block">
                 AI Provider
               </label>
-              <Select value={provider} onValueChange={setProvider}>
+              <Select value={provider} onValueChange={(value) => setProvider(value as 'openai' | 'claude' | 'gemini')}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -310,7 +310,7 @@ export function StartSitAnalyzer({
                     <div key={position} className="flex justify-between items-center p-2 bg-gray-50 rounded">
                       <span className="font-medium">{position}:</span>
                       <span className="text-sm">
-                        {availablePlayers.find(p => p.id === playerId)?.name || playerId}
+                        {(availablePlayers.find(p => p.id === playerId)?.name || playerId) as string}
                       </span>
                     </div>
                   ))}
