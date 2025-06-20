@@ -19,7 +19,26 @@
       "Bash(docker stop:*)",
       "Bash(docker rm:*)",
       "Bash(npm install:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "mcp__railway-mcp__project_create",
+      "mcp__railway-mcp__project_info",
+      "mcp__railway-mcp__project_list",
+      "mcp__railway-mcp__configure_api_token",
+      "mcp__railway-mcp__database_list_types",
+      "mcp__railway-mcp__project_environments",
+      "mcp__railway-mcp__database_deploy_from_template",
+      "mcp__railway-mcp__service_create_from_repo",
+      "mcp__railway-mcp__service_update",
+      "mcp__railway-mcp__list_service_variables",
+      "mcp__railway-mcp__variable_bulk_set",
+      "mcp__railway-mcp__domain_create",
+      "mcp__railway-mcp__service_list",
+      "mcp__railway-mcp__service_delete",
+      "mcp__railway-mcp__variable_set",
+      "mcp__railway-mcp__deployment_list",
+      "mcp__railway-mcp__deployment_logs",
+      "mcp__railway-mcp__deployment_trigger",
+      "mcp__railway-mcp__deployment_status"
     ],
     "deny": []
   }
