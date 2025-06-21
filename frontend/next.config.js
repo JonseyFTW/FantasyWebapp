@@ -1,10 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    appDir: true,
-  },
-  // Enable standalone output for Docker
-  output: 'standalone',
+  // Remove deprecated appDir option (now default in Next.js 14)
   
   // Image optimization
   images: {
@@ -20,11 +16,6 @@ const nextConfig = {
   // Webpack configuration
   webpack: (config, { isServer }) => {
     return config;
-  },
-  
-  // Disable telemetry in production
-  telemetry: {
-    enabled: false,
   },
 }
 
