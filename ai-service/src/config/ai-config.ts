@@ -18,7 +18,7 @@ export function createAIConfig(): AIManagerConfig {
   if (process.env.OPENAI_API_KEY) {
     providers[AIProvider.OPENAI] = {
       apiKey: process.env.OPENAI_API_KEY,
-      model: process.env.OPENAI_MODEL || 'gpt-4-turbo-preview',
+      model: process.env.OPENAI_MODEL || 'gpt-4o',
       maxRetries: parseInt(process.env.OPENAI_MAX_RETRIES || '3'),
       timeout: parseInt(process.env.OPENAI_TIMEOUT || '30000'),
     };
@@ -28,7 +28,7 @@ export function createAIConfig(): AIManagerConfig {
   if (process.env.ANTHROPIC_API_KEY) {
     providers[AIProvider.CLAUDE] = {
       apiKey: process.env.ANTHROPIC_API_KEY,
-      model: process.env.ANTHROPIC_MODEL || 'claude-3-sonnet-20240229',
+      model: process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022',
       maxRetries: parseInt(process.env.ANTHROPIC_MAX_RETRIES || '3'),
       timeout: parseInt(process.env.ANTHROPIC_TIMEOUT || '30000'),
     };
@@ -38,7 +38,7 @@ export function createAIConfig(): AIManagerConfig {
   if (process.env.GEMINI_API_KEY) {
     providers[AIProvider.GEMINI] = {
       apiKey: process.env.GEMINI_API_KEY,
-      model: process.env.GEMINI_MODEL || 'gemini-pro',
+      model: process.env.GEMINI_MODEL || 'gemini-1.5-flash',
       maxRetries: parseInt(process.env.GEMINI_MAX_RETRIES || '3'),
       timeout: parseInt(process.env.GEMINI_TIMEOUT || '30000'),
     };
@@ -143,17 +143,19 @@ function getRedisPassword(): string | undefined {
 
 export const AI_MODELS = {
   [AIProvider.OPENAI]: {
-    'gpt-4-turbo-preview': { contextWindow: 128000, costPer1kTokens: 0.01 },
-    'gpt-4': { contextWindow: 8192, costPer1kTokens: 0.03 },
+    'gpt-4o': { contextWindow: 128000, costPer1kTokens: 0.0025 },
+    'gpt-4o-mini': { contextWindow: 128000, costPer1kTokens: 0.00015 },
+    'gpt-4-turbo': { contextWindow: 128000, costPer1kTokens: 0.01 },
     'gpt-3.5-turbo': { contextWindow: 16384, costPer1kTokens: 0.001 },
   },
   [AIProvider.CLAUDE]: {
+    'claude-3-5-sonnet-20241022': { contextWindow: 200000, costPer1kTokens: 0.003 },
+    'claude-3-5-haiku-20241022': { contextWindow: 200000, costPer1kTokens: 0.00025 },
     'claude-3-opus-20240229': { contextWindow: 200000, costPer1kTokens: 0.015 },
-    'claude-3-sonnet-20240229': { contextWindow: 200000, costPer1kTokens: 0.003 },
-    'claude-3-haiku-20240307': { contextWindow: 200000, costPer1kTokens: 0.00025 },
   },
   [AIProvider.GEMINI]: {
+    'gemini-1.5-flash': { contextWindow: 1048576, costPer1kTokens: 0.000075 },
+    'gemini-1.5-pro': { contextWindow: 2097152, costPer1kTokens: 0.00125 },
     'gemini-pro': { contextWindow: 32768, costPer1kTokens: 0.0005 },
-    'gemini-pro-vision': { contextWindow: 16384, costPer1kTokens: 0.0005 },
   },
 } as const;
