@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc",
+    "build": "cd ../shared && npm ci && npm run build && cd ../backend && npm ci && npx prisma generate && npm run build:only",
+    "build:only": "tsc",
     "start": "node dist/scripts/migrate-and-start.js",
     "start:dev": "node dist/index.js",
     "lint": "eslint src --ext .ts",
