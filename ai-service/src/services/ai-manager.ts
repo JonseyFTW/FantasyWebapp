@@ -75,10 +75,22 @@ export class AIManager {
   async initialize(): Promise<void> {
     console.log('Initializing AI Manager...');
     
-    // Initialize MCP client
-    await this.mcpClient.initialize();
+    // Initialize MCP client (non-blocking)
+    try {
+      await this.mcpClient.initialize();
+      console.log('MCP client initialized successfully');
+    } catch (error) {
+      console.warn('MCP client initialization failed, continuing without MCP:', error);
+    }
     
-    // Test provider connectivity
+    // Check if we have any providers configured
+    if (this.providers.size === 0) {
+      console.warn('⚠️  No AI providers configured. Service will start but AI features will be limited.');
+      console.warn('⚠️  Configure at least one provider (OPENAI_API_KEY, ANTHROPIC_API_KEY, or GEMINI_API_KEY)');
+      return;
+    }
+    
+    // Test provider connectivity (non-blocking)
     const providerHealthChecks = Array.from(this.providers.entries()).map(
       async ([providerType, provider]) => {
         try {
@@ -96,10 +108,10 @@ export class AIManager {
     const healthyProviders = healthResults.filter(result => result.healthy);
 
     if (healthyProviders.length === 0) {
-      throw new Error('No healthy AI providers available');
+      console.warn('⚠️  No healthy AI providers available. Service will start but AI requests may fail.');
+    } else {
+      console.log(`✅ AI Manager initialized with ${healthyProviders.length} healthy providers`);
     }
-
-    console.log(`AI Manager initialized with ${healthyProviders.length} healthy providers`);
   }
 
   async chat(

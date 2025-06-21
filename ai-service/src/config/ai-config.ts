@@ -2,12 +2,12 @@ import { AIProvider } from '../types/ai-providers';
 import { AIManagerConfig } from '../services/ai-manager';
 
 export function createAIConfig(): AIManagerConfig {
-  // Validate required environment variables
-  const requiredEnvVars = ['MCP_SERVER_URL'];
-  const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
+  // MCP server is optional - service can work without it
+  const mcpServerUrl = process.env.MCP_SERVER_URL || 'http://localhost:3001';
   
-  if (missingVars.length > 0) {
-    throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
+  if (!process.env.MCP_SERVER_URL) {
+    console.log('⚠️  MCP_SERVER_URL not set, using default: http://localhost:3001');
+    console.log('⚠️  MCP features will be limited without a proper MCP server connection');
   }
 
   // Provider configurations
@@ -62,7 +62,7 @@ export function createAIConfig(): AIManagerConfig {
     defaultProvider,
     fallbackProviders,
     mcpConfig: {
-      baseURL: process.env.MCP_SERVER_URL!,
+      baseURL: mcpServerUrl,
       timeout: parseInt(process.env.MCP_SERVER_TIMEOUT || '30000'),
       retries: parseInt(process.env.MCP_SERVER_RETRIES || '3'),
     },
