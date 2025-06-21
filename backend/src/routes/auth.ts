@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { createToken, authenticateToken, AuthenticatedRequest } from '../middleware/auth';
-import { validateSchema } from '@fantasy-app/shared';
+import { validateSchema } from '../utils/validation';
 import { z } from 'zod';
 
 const router = Router();

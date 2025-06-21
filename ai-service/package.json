@@ -4,8 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "npm run build:deps && tsc",
-    "build:deps": "if [ -d ../shared ]; then cd ../shared && npm ci && npm run build; fi",
+    "build": "tsc",
     "start": "node dist/index.js",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
@@ -15,7 +14,6 @@
     "test:coverage": "jest --coverage"
   },
   "dependencies": {
-    "@fantasy-app/shared": "file:../shared",
     "@anthropic-ai/sdk": "^0.27.0",
     "@google/generative-ai": "^0.2.1",
     "@types/compression": "^1.8.1",

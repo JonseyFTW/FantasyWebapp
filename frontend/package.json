@@ -4,8 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "npm run build:deps && next build",
-    "build:deps": "if [ -d ../shared ]; then cd ../shared && npm ci && npm run build; fi",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
@@ -17,7 +16,6 @@
     "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
-    "@fantasy-app/shared": "file:../shared",
     "@auth/prisma-adapter": "^1.0.12",
     "@hookform/resolvers": "^3.3.2",
     "@next-auth/prisma-adapter": "^1.0.7",
