@@ -43,7 +43,6 @@ export class AIManager {
           port: config.redis.port,
           password: config.redis.password,
           maxRetriesPerRequest: 3,
-          retryDelayOnFailover: 100,
           lazyConnect: true,
           enableOfflineQueue: false,
         });
