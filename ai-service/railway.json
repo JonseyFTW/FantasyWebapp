@@ -1,12 +1,7 @@
 {
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
-    "builder": "NIXPACKS",
-    "watchPatterns": [
-      "ai-service/**/*.ts",
-      "ai-service/**/*.js",
-      "shared/**/*.ts"
-    ]
+    "builder": "NIXPACKS"
   },
   "deploy": {
     "numReplicas": 1,

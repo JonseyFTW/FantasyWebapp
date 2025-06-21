@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run build:deps && next build",
+    "build:deps": "if [ -d ../shared ]; then cd ../shared && npm ci && npm run build; fi",
     "start": "next start",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
