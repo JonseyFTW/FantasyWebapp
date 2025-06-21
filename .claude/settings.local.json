@@ -48,7 +48,9 @@
       "Bash(git commit:*)",
       "Bash(railway:*)",
       "Bash(find:*)",
-      "Bash(npm ci:*)"
+      "Bash(npm ci:*)",
+      "Bash(git push:*)",
+      "Bash(rm:*)"
     ],
     "deny": []
   }
