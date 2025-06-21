@@ -1,36 +1,13 @@
-import { withAuth } from 'next-auth/middleware';
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
-export default withAuth(
-  function middleware(req) {
-    // Add any additional middleware logic here
-    console.log('Middleware executed for:', req.nextUrl.pathname);
-  },
-  {
-    callbacks: {
-      authorized: ({ token, req }) => {
-        // Check if the user is authenticated
-        if (token) return true;
-
-        // Allow access to public routes
-        const { pathname } = req.nextUrl;
-        const publicRoutes = [
-          '/',
-          '/auth/signin',
-          '/auth/signout',
-          '/auth/error',
-          '/privacy',
-          '/terms',
-          '/api/auth',
-        ];
-
-        // Allow public routes and API auth routes
-        return publicRoutes.some(route => 
-          pathname === route || pathname.startsWith(`${route}/`)
-        );
-      },
-    },
-  }
-);
+export function middleware(request: NextRequest) {
+  // Simplified middleware - just log and continue
+  console.log('Middleware executed for:', request.nextUrl.pathname);
+  
+  // Allow all requests to pass through for now
+  return NextResponse.next();
+}
 
 export const config = {
   matcher: [
