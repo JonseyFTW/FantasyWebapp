@@ -83,7 +83,8 @@ export class ClaudeProvider extends BaseAIProvider {
         max_tokens: 1,
       });
       return !!response.content[0];
-    } catch {
+    } catch (error) {
+      console.error('Claude health check error:', error instanceof Error ? error.message : error);
       return false;
     }
   }

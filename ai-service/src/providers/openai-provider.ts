@@ -77,7 +77,8 @@ export class OpenAIProvider extends BaseAIProvider {
         max_tokens: 1,
       });
       return !!response.choices[0];
-    } catch {
+    } catch (error) {
+      console.error('OpenAI health check error:', error instanceof Error ? error.message : error);
       return false;
     }
   }

@@ -7,6 +7,7 @@ export function createAIConfig(): AIManagerConfig {
   
   if (!process.env.MCP_SERVER_URL) {
     console.log('⚠️  MCP_SERVER_URL not set, using default: http://localhost:3001');
+    console.log('⚠️  For Railway deployment, set MCP_SERVER_URL to your deployed MCP service URL');
     console.log('⚠️  MCP features will be limited without a proper MCP server connection');
   }
 

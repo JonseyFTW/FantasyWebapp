@@ -50,7 +50,8 @@
       "Bash(find:*)",
       "Bash(npm ci:*)",
       "Bash(git push:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(env)"
     ],
     "deny": []
   }

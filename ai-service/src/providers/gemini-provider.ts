@@ -134,7 +134,8 @@ export class GeminiProvider extends BaseAIProvider {
       const result = await model.generateContent('test');
       const response = await result.response;
       return !!response.text();
-    } catch {
+    } catch (error) {
+      console.error('Gemini health check error:', error instanceof Error ? error.message : error);
       return false;
     }
   }

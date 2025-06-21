@@ -37,12 +37,28 @@ export class AIManager {
     this.mcpClient = new MCPClient(config.mcpConfig);
     
     if (config.redis && config.caching?.enabled) {
-      this.redis = new Redis({
-        host: config.redis.host,
-        port: config.redis.port,
-        password: config.redis.password,
-        maxRetriesPerRequest: 3,
-      });
+      try {
+        this.redis = new Redis({
+          host: config.redis.host,
+          port: config.redis.port,
+          password: config.redis.password,
+          maxRetriesPerRequest: 3,
+          retryDelayOnFailover: 100,
+          lazyConnect: true,
+          enableOfflineQueue: false,
+        });
+        
+        this.redis.on('error', (error) => {
+          console.warn('⚠️  Redis connection error (service will continue without caching):', error.message);
+        });
+        
+        this.redis.on('connect', () => {
+          console.log('✅ Redis connected successfully');
+        });
+      } catch (error) {
+        console.warn('⚠️  Failed to initialize Redis (service will continue without caching):', error);
+        this.redis = undefined;
+      }
     }
   }
 
