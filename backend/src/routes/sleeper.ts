@@ -41,18 +41,15 @@ router.post('/sync', async (req, res) => {
 
     // Call Sleeper MCP to get user data
     const mcpServerUrl = process.env.MCP_SERVER_URL || 'http://localhost:3001';
-    const mcpResponse = await fetch(`${mcpServerUrl}/mcp`, {
+    const mcpResponse = await fetch(`${mcpServerUrl}/tools/call`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        method: 'tools/call',
-        params: {
-          name: 'sleeper.getUserByUsername',
-          arguments: {
-            username: sleeperUsername,
-          },
+        name: 'sleeper.getUserByUsername',
+        arguments: {
+          username: sleeperUsername,
         },
       }),
     });
@@ -74,7 +71,7 @@ router.post('/sync', async (req, res) => {
 
     const mcpResult = await mcpResponse.json() as any;
     
-    if (!mcpResult.result || !mcpResult.result.content) {
+    if (!mcpResult.content) {
       return res.status(404).json({
         success: false,
         error: {
@@ -84,23 +81,20 @@ router.post('/sync', async (req, res) => {
       });
     }
 
-    const sleeperUser = JSON.parse(mcpResult.result.content[0].text);
+    const sleeperUser = JSON.parse(mcpResult.content[0].text);
     const sleeperUserId = sleeperUser.user_id;
 
     // Get user's leagues from Sleeper
-    const leaguesResponse = await fetch(`${mcpServerUrl}/mcp`, {
+    const leaguesResponse = await fetch(`${mcpServerUrl}/tools/call`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        method: 'tools/call',
-        params: {
-          name: 'sleeper.getUserLeagues',
-          arguments: {
-            user_id: sleeperUserId,
-            season: '2024',
-          },
+        name: 'sleeper.getLeaguesForUser',
+        arguments: {
+          user_id: sleeperUserId,
+          season: '2024',
         },
       }),
     });
@@ -108,8 +102,8 @@ router.post('/sync', async (req, res) => {
     let leagues = [];
     if (leaguesResponse.ok) {
       const leaguesResult = await leaguesResponse.json() as any;
-      if (leaguesResult.result && leaguesResult.result.content) {
-        leagues = JSON.parse(leaguesResult.result.content[0].text);
+      if (leaguesResult.content) {
+        leagues = JSON.parse(leaguesResult.content[0].text);
       }
     }
 
@@ -199,19 +193,16 @@ router.get('/user/:sleeperUserId/leagues', async (req, res) => {
 
     // Get leagues from Sleeper MCP
     const mcpServerUrl = process.env.MCP_SERVER_URL || 'http://localhost:3001';
-    const leaguesResponse = await fetch(`${mcpServerUrl}/mcp`, {
+    const leaguesResponse = await fetch(`${mcpServerUrl}/tools/call`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        method: 'tools/call',
-        params: {
-          name: 'sleeper.getUserLeagues',
-          arguments: {
-            user_id: sleeperUserId,
-            season: '2024',
-          },
+        name: 'sleeper.getLeaguesForUser',
+        arguments: {
+          user_id: sleeperUserId,
+          season: '2024',
         },
       }),
     });
@@ -229,8 +220,8 @@ router.get('/user/:sleeperUserId/leagues', async (req, res) => {
     const leaguesResult = await leaguesResponse.json() as any;
     let leagues = [];
     
-    if (leaguesResult.result && leaguesResult.result.content) {
-      leagues = JSON.parse(leaguesResult.result.content[0].text);
+    if (leaguesResult.content) {
+      leagues = JSON.parse(leaguesResult.content[0].text);
     }
 
     res.json({
