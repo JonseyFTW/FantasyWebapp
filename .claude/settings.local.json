@@ -55,7 +55,8 @@
       "mcp__puppeteer__puppeteer_navigate",
       "mcp__MCP_DOCKER__browser_navigate",
       "mcp__MCP_DOCKER__browser_click",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(mkdir:*)"
     ],
     "deny": []
   }
