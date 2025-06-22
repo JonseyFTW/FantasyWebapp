@@ -90,8 +90,11 @@ export const authOptions: NextAuthOptions = {
           });
           return true;
         } catch (error) {
-          console.error('Error creating/updating user:', error);
-          return false;
+          console.error('❌ Database error during sign in:', error);
+          console.error('Database URL configured:', !!process.env.DATABASE_URL);
+          // Allow sign in to continue even if user creation fails
+          // This prevents OAuth callback errors when database is down
+          return true;
         }
       }
       return true;
