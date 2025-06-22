@@ -1,5 +1,6 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
+import { cleanupDemoData } from '../scripts/cleanup-demo-data';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -214,6 +215,11 @@ router.get('/user/:sleeperUserId/leagues', async (req, res) => {
     });
 
     if (!leaguesResponse.ok) {
+      console.error('Failed to fetch leagues:', {
+        status: leaguesResponse.status,
+        statusText: leaguesResponse.statusText,
+        sleeperUserId,
+      });
       return res.status(500).json({
         success: false,
         error: {
@@ -242,6 +248,30 @@ router.get('/user/:sleeperUserId/leagues', async (req, res) => {
       error: {
         code: 'INTERNAL_SERVER_ERROR',
         message: 'Failed to fetch user leagues',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      },
+    });
+  }
+});
+
+// Cleanup demo data endpoint
+router.post('/cleanup-demo-data', async (req, res) => {
+  try {
+    console.log('🧹 Cleanup demo data requested');
+    await cleanupDemoData();
+    
+    res.json({
+      success: true,
+      message: 'Demo data cleaned up successfully',
+    });
+  } catch (error) {
+    console.error('Error cleaning up demo data:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'CLEANUP_ERROR',
+        message: 'Failed to cleanup demo data',
+        details: error instanceof Error ? error.message : 'Unknown error',
       },
     });
   }
