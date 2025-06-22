@@ -66,7 +66,8 @@ export const authOptions: NextAuthOptions = {
       if (account?.provider === 'google' || account?.provider === 'discord') {
         // Create or update user with additional fields
         try {
-          await prisma.user.upsert({
+          console.log('🔄 Attempting to create/update user:', user.email);
+          const result = await prisma.user.upsert({
             where: { email: user.email! },
             update: {
               displayName: user.name || profile?.name || 'Unknown User',
@@ -88,13 +89,21 @@ export const authOptions: NextAuthOptions = {
               },
             },
           });
+          console.log('✅ User created/updated successfully:', result.id);
           return true;
         } catch (error) {
           console.error('❌ Database error during sign in:', error);
           console.error('Database URL configured:', !!process.env.DATABASE_URL);
-          // Allow sign in to continue even if user creation fails
-          // This prevents OAuth callback errors when database is down
-          return true;
+          console.error('User email:', user.email);
+          console.error('Account provider:', account.provider);
+          console.error('Account details:', { 
+            provider: account.provider, 
+            providerAccountId: account.providerAccountId,
+            type: account.type 
+          });
+          // Don't allow sign in to continue if user creation fails
+          // This will show the actual error instead of "account not linked"
+          return false;
         }
       }
       return true;
