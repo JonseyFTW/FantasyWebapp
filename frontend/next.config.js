@@ -20,11 +20,6 @@ const nextConfig = {
   webpack: (config, { isServer }) => {
     return config;
   },
-  
-  // Experimental features for better production builds
-  experimental: {
-    optimizeCss: true,
-  },
 }
 
 module.exports = nextConfig
