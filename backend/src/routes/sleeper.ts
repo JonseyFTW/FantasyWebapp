@@ -40,7 +40,8 @@ router.post('/sync', async (req, res) => {
     }
 
     // Call Sleeper MCP to get user data
-    const mcpResponse = await fetch('http://localhost:3001/mcp', {
+    const mcpServerUrl = process.env.MCP_SERVER_URL || 'http://localhost:3001';
+    const mcpResponse = await fetch(`${mcpServerUrl}/mcp`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -57,11 +58,16 @@ router.post('/sync', async (req, res) => {
     });
 
     if (!mcpResponse.ok) {
+      console.error('MCP connection failed:', {
+        url: `${mcpServerUrl}/mcp`,
+        status: mcpResponse.status,
+        statusText: mcpResponse.statusText,
+      });
       return res.status(500).json({
         success: false,
         error: {
           code: 'MCP_ERROR',
-          message: 'Failed to connect to Sleeper MCP server',
+          message: `Failed to connect to Sleeper MCP server at ${mcpServerUrl}. Status: ${mcpResponse.status}`,
         },
       });
     }
@@ -82,7 +88,7 @@ router.post('/sync', async (req, res) => {
     const sleeperUserId = sleeperUser.user_id;
 
     // Get user's leagues from Sleeper
-    const leaguesResponse = await fetch('http://localhost:3001/mcp', {
+    const leaguesResponse = await fetch(`${mcpServerUrl}/mcp`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -193,7 +199,8 @@ router.get('/user/:sleeperUserId/leagues', async (req, res) => {
     const { sleeperUserId } = req.params;
 
     // Get leagues from Sleeper MCP
-    const leaguesResponse = await fetch('http://localhost:3001/mcp', {
+    const mcpServerUrl = process.env.MCP_SERVER_URL || 'http://localhost:3001';
+    const leaguesResponse = await fetch(`${mcpServerUrl}/mcp`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
