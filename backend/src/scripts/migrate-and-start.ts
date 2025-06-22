@@ -9,10 +9,10 @@ async function migrateAndStart() {
   console.log('🔄 Starting deployment process...');
   
   try {
-    // Run database migrations
-    console.log('📊 Running database migrations...');
-    await execAsync('npx prisma migrate deploy');
-    console.log('✅ Database migrations completed');
+    // Sync database schema
+    console.log('📊 Syncing database schema...');
+    await execAsync('npx prisma db push');
+    console.log('✅ Database schema synced');
     
     // Generate Prisma client (in case it's needed)
     console.log('🔧 Generating Prisma client...');
