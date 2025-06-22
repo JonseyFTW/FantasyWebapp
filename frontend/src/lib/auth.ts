@@ -62,50 +62,20 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
     async signIn({ user, account, profile }) {
-      // Check if this sign in callback is being called in the credentials authentication flow
+      console.log('🔄 signIn callback triggered', {
+        userEmail: user.email,
+        provider: account?.provider,
+        accountType: account?.type
+      });
+      
+      // Let NextAuth handle user creation automatically via PrismaAdapter
+      // Only do custom logic for specific providers if needed
       if (account?.provider === 'google' || account?.provider === 'discord') {
-        // Create or update user with additional fields
-        try {
-          console.log('🔄 Attempting to create/update user:', user.email);
-          const result = await prisma.user.upsert({
-            where: { email: user.email! },
-            update: {
-              displayName: user.name || profile?.name || 'Unknown User',
-              avatarUrl: user.image || profile?.image,
-            },
-            create: {
-              email: user.email!,
-              displayName: user.name || profile?.name || 'Unknown User',
-              avatarUrl: user.image || profile?.image,
-              preferences: {
-                riskTolerance: 'moderate',
-                notificationSettings: {
-                  email: true,
-                  push: true,
-                  weeklyReport: true,
-                  tradeAlerts: true,
-                },
-                theme: 'system',
-              },
-            },
-          });
-          console.log('✅ User created/updated successfully:', result.id);
-          return true;
-        } catch (error) {
-          console.error('❌ Database error during sign in:', error);
-          console.error('Database URL configured:', !!process.env.DATABASE_URL);
-          console.error('User email:', user.email);
-          console.error('Account provider:', account.provider);
-          console.error('Account details:', { 
-            provider: account.provider, 
-            providerAccountId: account.providerAccountId,
-            type: account.type 
-          });
-          // Don't allow sign in to continue if user creation fails
-          // This will show the actual error instead of "account not linked"
-          return false;
-        }
+        console.log('✅ OAuth provider signin approved for:', user.email);
+        return true;
       }
+      
+      console.log('✅ Default signin approved for:', user.email);
       return true;
     },
   },
