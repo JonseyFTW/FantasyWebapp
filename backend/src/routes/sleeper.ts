@@ -72,7 +72,7 @@ router.post('/sync', async (req, res) => {
       });
     }
 
-    const mcpResult = await mcpResponse.json();
+    const mcpResult = await mcpResponse.json() as any;
     
     if (!mcpResult.result || !mcpResult.result.content) {
       return res.status(404).json({
@@ -107,7 +107,7 @@ router.post('/sync', async (req, res) => {
 
     let leagues = [];
     if (leaguesResponse.ok) {
-      const leaguesResult = await leaguesResponse.json();
+      const leaguesResult = await leaguesResponse.json() as any;
       if (leaguesResult.result && leaguesResult.result.content) {
         leagues = JSON.parse(leaguesResult.result.content[0].text);
       }
@@ -227,7 +227,7 @@ router.get('/user/:sleeperUserId/leagues', async (req, res) => {
       });
     }
 
-    const leaguesResult = await leaguesResponse.json();
+    const leaguesResult = await leaguesResponse.json() as any;
     let leagues = [];
     
     if (leaguesResult.result && leaguesResult.result.content) {
