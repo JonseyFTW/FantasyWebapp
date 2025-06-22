@@ -87,28 +87,25 @@ router.post('/sync', async (req, res) => {
     const sleeperUser = mcpResult.result;
     const sleeperUserId = sleeperUser.user_id;
 
-    // Get user's leagues from Sleeper
-    const leaguesResponse = await fetch(`${mcpServerUrl}/rpc`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'sleeper.getLeaguesForUser',
-        params: {
-          user_id: sleeperUserId,
-          season: '2024',
-        },
-        id: 2,
-      }),
-    });
-
+    // Get user's leagues directly from Sleeper API (fallback since MCP has issues)
+    // Try both 2024 and 2025 seasons
     let leagues = [];
-    if (leaguesResponse.ok) {
-      const leaguesResult = await leaguesResponse.json() as any;
-      if (leaguesResult.result) {
-        leagues = leaguesResult.result;
+    
+    for (const season of ['2024', '2025']) {
+      const leaguesResponse = await fetch(`https://api.sleeper.app/v1/user/${sleeperUserId}/leagues/nfl/${season}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (leaguesResponse.ok) {
+        const seasonLeagues = await leaguesResponse.json();
+        if (seasonLeagues && seasonLeagues.length > 0) {
+          leagues.push(...seasonLeagues);
+        }
+      } else {
+        console.log(`No leagues found for ${season} season for user ${sleeperUserId}`);
       }
     }
 
@@ -196,44 +193,25 @@ router.get('/user/:sleeperUserId/leagues', async (req, res) => {
   try {
     const { sleeperUserId } = req.params;
 
-    // Get leagues from Sleeper MCP
-    const mcpServerUrl = process.env.MCP_SERVER_URL || 'http://localhost:3001';
-    const leaguesResponse = await fetch(`${mcpServerUrl}/rpc`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'sleeper.getLeaguesForUser',
-        params: {
-          user_id: sleeperUserId,
-          season: '2024',
-        },
-        id: 1,
-      }),
-    });
-
-    if (!leaguesResponse.ok) {
-      console.error('Failed to fetch leagues:', {
-        status: leaguesResponse.status,
-        statusText: leaguesResponse.statusText,
-        sleeperUserId,
-      });
-      return res.status(500).json({
-        success: false,
-        error: {
-          code: 'MCP_ERROR',
-          message: 'Failed to fetch leagues from Sleeper',
-        },
-      });
-    }
-
-    const leaguesResult = await leaguesResponse.json() as any;
+    // Get leagues directly from Sleeper API for both seasons
     let leagues = [];
     
-    if (leaguesResult.result) {
-      leagues = leaguesResult.result;
+    for (const season of ['2024', '2025']) {
+      const leaguesResponse = await fetch(`https://api.sleeper.app/v1/user/${sleeperUserId}/leagues/nfl/${season}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (leaguesResponse.ok) {
+        const seasonLeagues = await leaguesResponse.json();
+        if (seasonLeagues && seasonLeagues.length > 0) {
+          leagues.push(...seasonLeagues);
+        }
+      } else {
+        console.log(`No leagues found for ${season} season for user ${sleeperUserId}`);
+      }
     }
 
     res.json({
