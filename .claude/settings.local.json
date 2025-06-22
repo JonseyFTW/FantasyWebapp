@@ -54,7 +54,8 @@
       "Bash(env)",
       "mcp__puppeteer__puppeteer_navigate",
       "mcp__MCP_DOCKER__browser_navigate",
-      "mcp__MCP_DOCKER__browser_click"
+      "mcp__MCP_DOCKER__browser_click",
+      "Bash(npm run:*)"
     ],
     "deny": []
   }
