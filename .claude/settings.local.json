@@ -51,7 +51,10 @@
       "Bash(npm ci:*)",
       "Bash(git push:*)",
       "Bash(rm:*)",
-      "Bash(env)"
+      "Bash(env)",
+      "mcp__puppeteer__puppeteer_navigate",
+      "mcp__MCP_DOCKER__browser_navigate",
+      "mcp__MCP_DOCKER__browser_click"
     ],
     "deny": []
   }

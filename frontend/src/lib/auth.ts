@@ -87,24 +87,9 @@ export const authOptions: NextAuthOptions = {
       console.log('User signed out');
     },
     async createUser(message) {
-      console.log('New user created:', message.user.email);
-      
-      // Send welcome notification
-      try {
-        await prisma.notification.create({
-          data: {
-            userId: message.user.id,
-            type: 'welcome',
-            title: 'Welcome to Fantasy Football Analytics!',
-            message: 'Get started by connecting your Sleeper account and exploring AI-powered insights.',
-            priority: 'medium',
-            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-          },
-        });
-      } catch (error) {
-        console.error('Error creating welcome notification:', error);
-      }
+      console.log('✅ New user created successfully:', message.user.email);
+      // Skip notification creation for now to avoid potential errors
     },
   },
-  debug: process.env.NODE_ENV === 'development',
+  debug: process.env.NEXTAUTH_DEBUG === 'true',
 };
