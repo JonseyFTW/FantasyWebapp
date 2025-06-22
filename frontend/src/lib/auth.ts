@@ -30,10 +30,10 @@ if (process.env.DISCORD_CLIENT_ID && !process.env.DISCORD_CLIENT_ID.includes('te
 }
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma) as any,
+  adapter: PrismaAdapter(prisma),
   providers,
   session: {
-    strategy: 'jwt',
+    strategy: 'database',
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   pages: {
@@ -42,22 +42,10 @@ export const authOptions: NextAuthOptions = {
     error: '/auth/error',
   },
   callbacks: {
-    async jwt({ token, user, account }) {
-      // Persist the OAuth access_token and or the user id to the token right after signin
-      if (account && user) {
-        return {
-          ...token,
-          accessToken: account.access_token,
-          userId: user.id,
-        };
-      }
-      return token;
-    },
-    async session({ session, token }) {
-      // Send properties to the client
-      if (token && session.user) {
-        (session.user as any).id = token.userId as string;
-        (session as any).accessToken = token.accessToken as string;
+    async session({ session, user }) {
+      // Send user ID to the client (with database sessions, user is available directly)
+      if (session.user && user) {
+        (session.user as any).id = user.id;
       }
       return session;
     },
