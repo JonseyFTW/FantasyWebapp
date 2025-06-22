@@ -2,9 +2,6 @@
 const nextConfig = {
   // Remove deprecated appDir option (now default in Next.js 14)
   
-  // Output configuration for Railway
-  output: 'standalone',
-  
   // Image optimization
   images: {
     domains: [],
