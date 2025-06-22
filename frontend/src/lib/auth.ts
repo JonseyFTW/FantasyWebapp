@@ -30,10 +30,11 @@ if (process.env.DISCORD_CLIENT_ID && !process.env.DISCORD_CLIENT_ID.includes('te
 }
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
+  // Use JWT sessions (which work) but manually handle database operations
+  // adapter: PrismaAdapter(prisma),
   providers,
   session: {
-    strategy: 'database',
+    strategy: 'jwt',
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   pages: {
@@ -42,10 +43,22 @@ export const authOptions: NextAuthOptions = {
     error: '/auth/error',
   },
   callbacks: {
-    async session({ session, user }) {
-      // Send user ID to the client (with database sessions, user is available directly)
-      if (session.user && user) {
-        (session.user as any).id = user.id;
+    async jwt({ token, user, account }) {
+      // Persist user info in JWT token
+      if (account && user) {
+        return {
+          ...token,
+          accessToken: account.access_token,
+          userId: user.id,
+        };
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      // Send properties to the client from JWT token
+      if (token && session.user) {
+        (session.user as any).id = token.sub;
+        (session as any).accessToken = token.accessToken;
       }
       return session;
     },
@@ -56,14 +69,43 @@ export const authOptions: NextAuthOptions = {
         accountType: account?.type
       });
       
-      // Let NextAuth handle user creation automatically via PrismaAdapter
-      // Only do custom logic for specific providers if needed
+      // Manually save user to database (since PrismaAdapter has issues)
       if (account?.provider === 'google' || account?.provider === 'discord') {
-        console.log('✅ OAuth provider signin approved for:', user.email);
+        try {
+          console.log('💾 Manually saving user to database...');
+          
+          await prisma.user.upsert({
+            where: { email: user.email! },
+            update: {
+              displayName: user.name || 'Unknown User',
+              avatarUrl: user.image,
+            },
+            create: {
+              email: user.email!,
+              displayName: user.name || 'Unknown User',
+              avatarUrl: user.image,
+              preferences: {
+                riskTolerance: 'moderate',
+                notificationSettings: {
+                  email: true,
+                  push: true,
+                  weeklyReport: true,
+                  tradeAlerts: true,
+                },
+                theme: 'system',
+              },
+            },
+          });
+          
+          console.log('✅ User saved to database successfully');
+        } catch (error) {
+          console.error('❌ Failed to save user to database:', error);
+          // Continue with OAuth even if database save fails
+        }
+        
         return true;
       }
       
-      console.log('✅ Default signin approved for:', user.email);
       return true;
     },
   },
