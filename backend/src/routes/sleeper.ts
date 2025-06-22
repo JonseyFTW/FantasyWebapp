@@ -41,16 +41,18 @@ router.post('/sync', async (req, res) => {
 
     // Call Sleeper MCP to get user data
     const mcpServerUrl = process.env.MCP_SERVER_URL || 'http://localhost:3001';
-    const mcpResponse = await fetch(`${mcpServerUrl}/tools/call`, {
+    const mcpResponse = await fetch(`${mcpServerUrl}/rpc`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        name: 'sleeper.getUserByUsername',
-        arguments: {
+        jsonrpc: '2.0',
+        method: 'sleeper.getUserByUsername',
+        params: {
           username: sleeperUsername,
         },
+        id: 1,
       }),
     });
 
@@ -71,7 +73,7 @@ router.post('/sync', async (req, res) => {
 
     const mcpResult = await mcpResponse.json() as any;
     
-    if (!mcpResult.content) {
+    if (!mcpResult.result) {
       return res.status(404).json({
         success: false,
         error: {
@@ -81,29 +83,31 @@ router.post('/sync', async (req, res) => {
       });
     }
 
-    const sleeperUser = JSON.parse(mcpResult.content[0].text);
+    const sleeperUser = mcpResult.result;
     const sleeperUserId = sleeperUser.user_id;
 
     // Get user's leagues from Sleeper
-    const leaguesResponse = await fetch(`${mcpServerUrl}/tools/call`, {
+    const leaguesResponse = await fetch(`${mcpServerUrl}/rpc`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        name: 'sleeper.getLeaguesForUser',
-        arguments: {
+        jsonrpc: '2.0',
+        method: 'sleeper.getLeaguesForUser',
+        params: {
           user_id: sleeperUserId,
           season: '2024',
         },
+        id: 2,
       }),
     });
 
     let leagues = [];
     if (leaguesResponse.ok) {
       const leaguesResult = await leaguesResponse.json() as any;
-      if (leaguesResult.content) {
-        leagues = JSON.parse(leaguesResult.content[0].text);
+      if (leaguesResult.result) {
+        leagues = leaguesResult.result;
       }
     }
 
@@ -193,17 +197,19 @@ router.get('/user/:sleeperUserId/leagues', async (req, res) => {
 
     // Get leagues from Sleeper MCP
     const mcpServerUrl = process.env.MCP_SERVER_URL || 'http://localhost:3001';
-    const leaguesResponse = await fetch(`${mcpServerUrl}/tools/call`, {
+    const leaguesResponse = await fetch(`${mcpServerUrl}/rpc`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        name: 'sleeper.getLeaguesForUser',
-        arguments: {
+        jsonrpc: '2.0',
+        method: 'sleeper.getLeaguesForUser',
+        params: {
           user_id: sleeperUserId,
           season: '2024',
         },
+        id: 1,
       }),
     });
 
@@ -220,8 +226,8 @@ router.get('/user/:sleeperUserId/leagues', async (req, res) => {
     const leaguesResult = await leaguesResponse.json() as any;
     let leagues = [];
     
-    if (leaguesResult.content) {
-      leagues = JSON.parse(leaguesResult.content[0].text);
+    if (leaguesResult.result) {
+      leagues = leaguesResult.result;
     }
 
     res.json({
