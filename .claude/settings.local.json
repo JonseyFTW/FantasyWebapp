@@ -63,7 +63,8 @@
       "Bash(node:*)",
       "mcp__MCP_DOCKER__docker",
       "mcp__sequential-thinking__sequentialthinking",
-      "Bash(npx jest:*)"
+      "Bash(npx jest:*)",
+      "Bash(docker build:*)"
     ],
     "deny": []
   }

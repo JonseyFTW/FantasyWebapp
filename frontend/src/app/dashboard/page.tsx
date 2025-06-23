@@ -51,32 +51,8 @@ interface UserData {
   }>;
 }
 
-const mockPlayerData = {
-  availablePlayers: [
-    { id: 'player_1', name: 'Josh Allen', position: 'QB', team: 'BUF' },
-    { id: 'player_2', name: 'Christian McCaffrey', position: 'RB', team: 'SF' },
-    { id: 'player_3', name: 'Tyreek Hill', position: 'WR', team: 'MIA' },
-    { id: 'player_4', name: 'Travis Kelce', position: 'TE', team: 'KC' },
-    { id: 'player_5', name: 'Justin Jefferson', position: 'WR', team: 'MIN' },
-    { id: 'player_6', name: 'Saquon Barkley', position: 'RB', team: 'NYG' },
-    { id: 'player_7', name: 'Stefon Diggs', position: 'WR', team: 'BUF' },
-    { id: 'player_8', name: 'Josh Jacobs', position: 'RB', team: 'LV' },
-  ],
-  rosterSlots: ['QB', 'RB1', 'RB2', 'WR1', 'WR2', 'TE', 'FLEX', 'DST', 'K'],
-};
-
-const mockTeamData = [
-  {
-    userId: 'user_1',
-    teamName: 'The Champions',
-    players: mockPlayerData.availablePlayers.slice(0, 4),
-  },
-  {
-    userId: 'user_2', 
-    teamName: 'Fantasy Gurus',
-    players: mockPlayerData.availablePlayers.slice(4, 8),
-  },
-];
+// Default roster slots in case league data is not available
+const defaultRosterSlots = ['QB', 'RB1', 'RB2', 'WR1', 'WR2', 'TE', 'FLEX', 'DST', 'K'];
 
 export default function DashboardPage() {
   const { user, requireAuth } = useAuth();
@@ -87,6 +63,8 @@ export default function DashboardPage() {
   const [currentWeek, setCurrentWeek] = useState(14);
   const [selectedLeagueRosterPlayers, setSelectedLeagueRosterPlayers] = useState<any[]>([]);
   const [fetchingRoster, setFetchingRoster] = useState(false);
+  const [leagueTeams, setLeagueTeams] = useState<any[]>([]);
+  const [fetchingTeams, setFetchingTeams] = useState(false);
 
   const fetchUserLeagues = async () => {
     if (!user?.email) return;
@@ -160,6 +138,78 @@ export default function DashboardPage() {
     }
   };
 
+  const fetchLeagueTeams = async (leagueId: string) => {
+    if (!user?.id || !leagueId) return;
+    
+    try {
+      setFetchingTeams(true);
+      const { apiClient } = await import('../../lib/api-client');
+      
+      // Fetch league details which includes all teams/rosters
+      const response = await apiClient.get(`/api/leagues/${leagueId}/details`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data) {
+          // Get all unique player IDs from all rosters
+          const allPlayerIds = new Set<string>();
+          data.data.rosters.forEach((roster: any) => {
+            if (roster.players) {
+              roster.players.forEach((playerId: string) => allPlayerIds.add(playerId));
+            }
+          });
+
+          // Fetch all player data from Sleeper API
+          let playersData: any = {};
+          try {
+            const playersResponse = await fetch('https://api.sleeper.app/v1/players/nfl');
+            if (playersResponse.ok) {
+              playersData = await playersResponse.json();
+            }
+          } catch (err) {
+            console.error('Failed to fetch players data:', err);
+          }
+
+          // Transform the roster data into team format for trade analyzer
+          const teams = data.data.rosters.map((roster: any, index: number) => {
+            const user = data.data.users.find((u: any) => u.user_id === roster.owner_id);
+            
+            // Convert player IDs to player objects with names
+            const players = (roster.players || []).map((playerId: string) => {
+              const playerData = playersData[playerId];
+              return {
+                id: playerId,
+                name: playerData ? `${playerData.first_name || ''} ${playerData.last_name || ''}`.trim() : `Player ${playerId}`,
+                position: playerData?.position || 'Unknown',
+                team: playerData?.team || 'Unknown',
+                isStarter: roster.starters?.includes(playerId) || false
+              };
+            });
+
+            return {
+              userId: roster.owner_id,
+              teamName: user?.display_name || `Team ${index + 1}`,
+              players: players,
+              rosterId: roster.roster_id,
+            };
+          });
+          setLeagueTeams(teams);
+        } else {
+          console.error('Failed to fetch league teams:', data.error);
+          setLeagueTeams([]);
+        }
+      } else {
+        console.error('Failed to fetch league teams:', response.status);
+        setLeagueTeams([]);
+      }
+    } catch (err) {
+      console.error('Error fetching league teams:', err);
+      setLeagueTeams([]);
+    } finally {
+      setFetchingTeams(false);
+    }
+  };
+
   useEffect(() => {
     requireAuth();
   }, [requireAuth]);
@@ -173,6 +223,7 @@ export default function DashboardPage() {
   useEffect(() => {
     if (selectedLeague && user) {
       fetchRosterPlayers(selectedLeague);
+      fetchLeagueTeams(selectedLeague);
     }
   }, [selectedLeague, user]);
 
@@ -341,7 +392,7 @@ export default function DashboardPage() {
                   leagueId={selectedLeague}
                   week={currentWeek}
                   availablePlayers={selectedLeagueRosterPlayers}
-                  rosterSlots={mockPlayerData.rosterSlots}
+                  rosterSlots={defaultRosterSlots}
                 />
               ) : selectedLeague ? (
                 <div className="text-center py-8">
@@ -363,21 +414,70 @@ export default function DashboardPage() {
             </TabsContent>
 
             <TabsContent value="trade-analyzer" className="mt-6">
-              <TradeAnalyzer
-                leagueId={selectedLeague}
-                userId={user.id}
-                availableTeams={mockTeamData}
-              />
+              {!selectedLeague ? (
+                <div className="text-center py-8">
+                  <Brain className="h-8 w-8 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Select a league</h3>
+                  <p className="text-gray-600">
+                    Click on a league above to use the Trade Analyzer with your league teams.
+                  </p>
+                </div>
+              ) : fetchingTeams ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Loading Teams</h3>
+                  <p className="text-gray-600">Fetching league teams for trade analysis...</p>
+                </div>
+              ) : leagueTeams.length === 0 ? (
+                <div className="text-center py-8">
+                  <Brain className="h-8 w-8 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No teams found</h3>
+                  <p className="text-gray-600">
+                    We couldn't load teams for this league. Make sure the league has active teams.
+                  </p>
+                </div>
+              ) : (
+                <TradeAnalyzer
+                  leagueId={selectedLeague}
+                  userId={user.id}
+                  week={currentWeek}
+                  availableTeams={leagueTeams}
+                />
+              )}
             </TabsContent>
 
             <TabsContent value="lineup-optimizer" className="mt-6">
-              <LineupOptimizer
-                userId={user.id}
-                leagueId={selectedLeague}
-                week={currentWeek}
-                availablePlayers={mockPlayerData.availablePlayers}
-                rosterSlots={mockPlayerData.rosterSlots}
-              />
+              {!selectedLeague ? (
+                <div className="text-center py-8">
+                  <Brain className="h-8 w-8 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Select a league</h3>
+                  <p className="text-gray-600">
+                    Click on a league above to use the Lineup Optimizer with your roster players.
+                  </p>
+                </div>
+              ) : fetchingRoster ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Loading Roster</h3>
+                  <p className="text-gray-600">Fetching your players for lineup optimization...</p>
+                </div>
+              ) : selectedLeagueRosterPlayers.length === 0 ? (
+                <div className="text-center py-8">
+                  <Brain className="h-8 w-8 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No players found</h3>
+                  <p className="text-gray-600">
+                    We couldn't load your roster for this league. Make sure you have players in your league roster.
+                  </p>
+                </div>
+              ) : (
+                <LineupOptimizer
+                  userId={user.id}
+                  leagueId={selectedLeague}
+                  week={currentWeek}
+                  availablePlayers={selectedLeagueRosterPlayers}
+                  rosterSlots={defaultRosterSlots}
+                />
+              )}
             </TabsContent>
           </Tabs>
         </CardContent>
