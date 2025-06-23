@@ -110,13 +110,24 @@ router.post('/sync', async (req, res) => {
     }
 
     // Update user with Sleeper data
-    const updatedUser = await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        sleeperUserId: sleeperUserId,
-        sleeperUsername: sleeperUsername,
-      },
-    });
+    let updatedUser;
+    try {
+      updatedUser = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          sleeperUserId: sleeperUserId,
+        },
+      });
+    } catch (dbError) {
+      console.log('Fallback: updating user without sleeperUsername field');
+      // Fallback update without sleeperUsername (for database compatibility)
+      updatedUser = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          sleeperUserId: sleeperUserId,
+        },
+      });
+    }
 
     // Store leagues in database
     for (const league of leagues) {

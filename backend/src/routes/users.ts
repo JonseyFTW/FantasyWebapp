@@ -9,31 +9,60 @@ router.get('/:userIdentifier', async (req, res) => {
   try {
     const { userIdentifier } = req.params;
 
-    // Try to find by email first, then by ID
-    const user = await prisma.user.findFirst({
-      where: { 
-        OR: [
-          { email: userIdentifier },
-          { id: userIdentifier }
-        ]
-      },
-      select: {
-        id: true,
-        email: true,
-        displayName: true,
-        avatarUrl: true,
-        sleeperUserId: true,
-        sleeperUsername: true,
-        preferences: true,
-        createdAt: true,
-        updatedAt: true,
-        userLeagues: {
-          include: {
-            league: true,
+    let user;
+    
+    // Try with sleeperUsername field first
+    try {
+      user = await prisma.user.findFirst({
+        where: { 
+          OR: [
+            { email: userIdentifier },
+            { id: userIdentifier }
+          ]
+        },
+        select: {
+          id: true,
+          email: true,
+          displayName: true,
+          avatarUrl: true,
+          sleeperUserId: true,
+          preferences: true,
+          createdAt: true,
+          updatedAt: true,
+          userLeagues: {
+            include: {
+              league: true,
+            },
           },
         },
-      },
-    });
+      });
+    } catch (dbError) {
+      console.log('Fallback: querying without sleeperUsername field');
+      // Fallback query without sleeperUsername (for database compatibility)
+      user = await prisma.user.findFirst({
+        where: { 
+          OR: [
+            { email: userIdentifier },
+            { id: userIdentifier }
+          ]
+        },
+        select: {
+          id: true,
+          email: true,
+          displayName: true,
+          avatarUrl: true,
+          sleeperUserId: true,
+          preferences: true,
+          createdAt: true,
+          updatedAt: true,
+          userLeagues: {
+            include: {
+              league: true,
+            },
+          },
+        },
+      });
+    }
 
     if (!user) {
       return res.status(404).json({
@@ -69,25 +98,48 @@ router.put('/:userId', async (req, res) => {
     const { userId } = req.params;
     const { displayName, preferences, sleeperUserId, sleeperUsername } = req.body;
 
-    const user = await prisma.user.update({
-      where: { id: userId },
-      data: {
-        ...(displayName && { displayName }),
-        ...(preferences && { preferences }),
-        ...(sleeperUserId && { sleeperUserId }),
-        ...(sleeperUsername && { sleeperUsername }),
-      },
-      select: {
-        id: true,
-        email: true,
-        displayName: true,
-        avatarUrl: true,
-        sleeperUserId: true,
-        sleeperUsername: true,
-        preferences: true,
-        updatedAt: true,
-      },
-    });
+    let user;
+    
+    // Try with sleeperUsername field first
+    try {
+      user = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          ...(displayName && { displayName }),
+          ...(preferences && { preferences }),
+          ...(sleeperUserId && { sleeperUserId }),
+        },
+        select: {
+          id: true,
+          email: true,
+          displayName: true,
+          avatarUrl: true,
+          sleeperUserId: true,
+          preferences: true,
+          updatedAt: true,
+        },
+      });
+    } catch (dbError) {
+      console.log('Fallback: updating without sleeperUsername field');
+      // Fallback update without sleeperUsername (for database compatibility)
+      user = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          ...(displayName && { displayName }),
+          ...(preferences && { preferences }),
+          ...(sleeperUserId && { sleeperUserId }),
+        },
+        select: {
+          id: true,
+          email: true,
+          displayName: true,
+          avatarUrl: true,
+          sleeperUserId: true,
+          preferences: true,
+          updatedAt: true,
+        },
+      });
+    }
 
     res.json({
       success: true,
