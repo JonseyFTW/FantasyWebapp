@@ -206,7 +206,7 @@ ${constraints.minProjectedPoints ? `- Minimum Projected Points: ${constraints.mi
     return `Please optimize my fantasy football lineup for maximum expected points while considering my preferences and constraints.
 
 LINEUP DETAILS:
-- League ID: ${request.leagueId}
+- League ID: ${request.leagueId} (Use this ID for all MCP tool calls)
 - Week: ${request.week}
 - User ID: ${request.userId}
 - Available Players: ${request.availablePlayers.join(', ')}
@@ -215,8 +215,8 @@ LINEUP DETAILS:
 ${preferencesText}${constraintsText}
 
 REQUIRED ANALYSIS STEPS:
-1. Use get_league to understand scoring settings and roster requirements
-2. Use get_league_rosters to get current roster and opponent information
+1. Use get_league with the League ID to understand scoring settings and roster requirements
+2. Use get_league_rosters with the League ID to get current roster and opponent information
 3. Use get_players_nfl to get detailed player information
 4. Use get_projections for rest-of-season and weekly projections
 5. Use get_player_stats for recent performance trends
@@ -550,6 +550,11 @@ Provide detailed projections including:
 - Weather and game script factors
 - Start/sit recommendations with confidence
 
+Use get_league with league ID ${leagueId} to understand league context.
+Use get_players_nfl to get player information.
+Use get_player_stats for recent performance trends.
+Use get_projections for weekly projections.
+
 Rank by expected fantasy points for week ${week}.`,
       },
     ];
@@ -621,6 +626,11 @@ Provide top 15-20 players with:
 - Recent form and usage trends
 - Weather and game script considerations
 - Start/sit tier classifications
+
+Use get_league with league ID ${leagueId} to understand league context.
+Use get_players_nfl to get player information.
+Use get_player_stats for recent performance trends.
+Use get_projections for weekly projections.
 
 Rank by expected fantasy points for week ${week}.`,
       },

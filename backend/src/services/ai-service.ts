@@ -347,6 +347,17 @@ export class AIService {
     try {
       console.log(`Analyzing start/sit for user ${request.userId}, week ${request.week}`);
 
+      // Look up the league in database to get Sleeper league ID
+      const league = await this.prisma.league.findUnique({
+        where: { id: request.leagueId },
+      });
+
+      if (!league) {
+        throw new Error(`League not found for ID: ${request.leagueId}`);
+      }
+
+      console.log(`Found league: ${league.name} (Sleeper ID: ${league.sleeperLeagueId})`);
+
       // Get fantasy data using direct Sleeper API (following Phase 1 pattern)
       let leagueData, playersData, userRoster;
       
@@ -354,7 +365,7 @@ export class AIService {
         // Direct Sleeper API calls (Primary)
         console.log('Using direct Sleeper API for start/sit data');
         const [leagueDetails, allPlayers] = await Promise.all([
-          this.sleeperAPI.getLeagueDetailsBatch(request.leagueId),
+          this.sleeperAPI.getLeagueDetailsBatch(league.sleeperLeagueId),
           this.sleeperAPI.getAllPlayers(),
         ]);
         
@@ -405,6 +416,17 @@ export class AIService {
     try {
       console.log(`Analyzing trade proposal for user ${request.userId}, week ${request.week}`);
 
+      // Look up the league in database to get Sleeper league ID
+      const league = await this.prisma.league.findUnique({
+        where: { id: request.leagueId },
+      });
+
+      if (!league) {
+        throw new Error(`League not found for ID: ${request.leagueId}`);
+      }
+
+      console.log(`Found league: ${league.name} (Sleeper ID: ${league.sleeperLeagueId})`);
+
       // Get fantasy data using direct Sleeper API (following Phase 1 pattern)
       let leagueData, playersData, userRoster;
       
@@ -412,7 +434,7 @@ export class AIService {
         // Direct Sleeper API calls (Primary)
         console.log('Using direct Sleeper API for trade analysis data');
         const [leagueDetails, allPlayers] = await Promise.all([
-          this.sleeperAPI.getLeagueDetailsBatch(request.leagueId),
+          this.sleeperAPI.getLeagueDetailsBatch(league.sleeperLeagueId),
           this.sleeperAPI.getAllPlayers(),
         ]);
         
@@ -463,13 +485,24 @@ export class AIService {
     try {
       console.log(`Analyzing waiver wire for user ${request.userId}, week ${request.week}`);
 
+      // Look up the league in database to get Sleeper league ID
+      const league = await this.prisma.league.findUnique({
+        where: { id: request.leagueId },
+      });
+
+      if (!league) {
+        throw new Error(`League not found for ID: ${request.leagueId}`);
+      }
+
+      console.log(`Found league: ${league.name} (Sleeper ID: ${league.sleeperLeagueId})`);
+
       // Get fantasy data using direct Sleeper API
       let leagueData, playersData, userRoster;
       
       try {
         console.log('Using direct Sleeper API for waiver wire data');
         const [leagueDetails, allPlayers] = await Promise.all([
-          this.sleeperAPI.getLeagueDetailsBatch(request.leagueId),
+          this.sleeperAPI.getLeagueDetailsBatch(league.sleeperLeagueId),
           this.sleeperAPI.getAllPlayers(),
         ]);
         
@@ -517,13 +550,24 @@ export class AIService {
     try {
       console.log(`Optimizing lineup for user ${request.userId}, week ${request.week}`);
 
+      // Look up the league in database to get Sleeper league ID
+      const league = await this.prisma.league.findUnique({
+        where: { id: request.leagueId },
+      });
+
+      if (!league) {
+        throw new Error(`League not found for ID: ${request.leagueId}`);
+      }
+
+      console.log(`Found league: ${league.name} (Sleeper ID: ${league.sleeperLeagueId})`);
+
       // Get fantasy data using direct Sleeper API
       let leagueData, playersData, userRoster;
       
       try {
         console.log('Using direct Sleeper API for lineup optimization');
         const [leagueDetails, allPlayers] = await Promise.all([
-          this.sleeperAPI.getLeagueDetailsBatch(request.leagueId),
+          this.sleeperAPI.getLeagueDetailsBatch(league.sleeperLeagueId),
           this.sleeperAPI.getAllPlayers(),
         ]);
         

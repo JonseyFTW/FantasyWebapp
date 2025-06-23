@@ -167,7 +167,7 @@ Roster Needs: ${request.rosterNeeds.join(', ')}
     return `Please analyze the waiver wire opportunities for my fantasy team this week.
 
 LEAGUE DETAILS:
-- League ID: ${request.leagueId}
+- League ID: ${request.leagueId} (Use this ID for all MCP tool calls)
 - Week: ${request.week}
 - User ID: ${request.userId}
 
@@ -176,8 +176,8 @@ ROSTER ANALYSIS:
 ${needsText}${budgetText}${preferencesText}
 
 REQUIRED ANALYSIS STEPS:
-1. Use get_league to understand league settings, roster sizes, and waiver rules
-2. Use get_league_rosters to see all team rosters and identify available players
+1. Use get_league with the League ID to understand league settings, roster sizes, and waiver rules
+2. Use get_league_rosters with the League ID to see all team rosters and identify available players
 3. Use get_players_nfl to get comprehensive player information
 4. Use get_player_stats to analyze recent usage and performance trends
 5. Use get_projections for upcoming week and rest-of-season outlook
@@ -410,6 +410,10 @@ Get current player data including:
 - Injury status and depth chart position
 - Fantasy relevance and upside potential
 
+Use get_league with league ID ${leagueId} to understand league context.
+Use get_players_nfl to get player information.
+Use get_player_stats for recent performance data.
+
 Provide specific pickup recommendation with priority ranking.`,
       },
     ];
@@ -563,6 +567,10 @@ Focus on:
 - Recent performance trends
 - Game script and weather factors
 - Injury/rotation concerns
+
+Use get_league with league ID ${leagueId} to understand league context.
+Use get_players_nfl to get player information.
+Use get_player_stats for recent performance trends.
 
 Rank by expected weekly performance for this position.`,
       },
