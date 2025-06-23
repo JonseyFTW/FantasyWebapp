@@ -219,7 +219,7 @@ export default function DashboardPage() {
       {/* League Overview */}
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
         {userData.leagues.map((userLeague) => (
-          <Card key={userLeague.league.id} className="card-hover cursor-pointer" onClick={() => setSelectedLeague(userLeague.league.id)}>
+          <Card key={userLeague.league.id} className="card-hover">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">{userLeague.league.name}</CardTitle>
@@ -232,7 +232,7 @@ export default function DashboardPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-2 gap-4 text-sm mb-4">
                 <div>
                   <div className="font-medium text-gray-900">{userLeague.role}</div>
                   <div className="text-gray-600">Role</div>
@@ -241,6 +241,21 @@ export default function DashboardPage() {
                   <div className="font-medium text-gray-900">{userLeague.league.season}</div>
                   <div className="text-gray-600">Season</div>
                 </div>
+              </div>
+              <div className="flex space-x-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setSelectedLeague(userLeague.league.id)}
+                  className={userLeague.league.id === selectedLeague ? 'bg-blue-50 border-blue-300' : ''}
+                >
+                  Select for AI Tools
+                </Button>
+                <Link href={`/league/${userLeague.league.id}`}>
+                  <Button size="sm" className="flex-1">
+                    View Details
+                  </Button>
+                </Link>
               </div>
             </CardContent>
           </Card>

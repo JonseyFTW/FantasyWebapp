@@ -61,7 +61,8 @@
       "Bash(npm test:*)",
       "Bash(npx tsc:*)",
       "Bash(node:*)",
-      "mcp__MCP_DOCKER__docker"
+      "mcp__MCP_DOCKER__docker",
+      "mcp__sequential-thinking__sequentialthinking"
     ],
     "deny": []
   }
