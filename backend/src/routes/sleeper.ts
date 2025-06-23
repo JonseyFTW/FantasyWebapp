@@ -125,7 +125,7 @@ router.post('/sync', async (req, res) => {
         },
         update: {
           name: league.name,
-          season: league.season,
+          season: parseInt(league.season) || 2024,
           totalRosters: league.total_rosters,
           status: league.status,
           settings: league.settings || {},
@@ -133,7 +133,7 @@ router.post('/sync', async (req, res) => {
         create: {
           sleeperLeagueId: league.league_id,
           name: league.name,
-          season: league.season,
+          season: parseInt(league.season) || 2024,
           totalRosters: league.total_rosters,
           status: league.status,
           settings: league.settings || {},
