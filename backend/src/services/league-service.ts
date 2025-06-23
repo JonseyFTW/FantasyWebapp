@@ -331,8 +331,49 @@ export class LeagueService {
         }
       });
 
+      // If no UserLeague record exists, try to find the user by their Sleeper user ID
       if (!userLeague || !userLeague.sleeperRosterId) {
-        throw new Error('User not found in this league');
+        console.log(`No UserLeague record for user ${userId}, attempting fallback using Sleeper user ID`);
+        
+        // Get the user's Sleeper user ID from the database
+        const user = await this.prisma.user.findUnique({
+          where: { id: userId },
+          select: { sleeperUserId: true }
+        });
+        
+        if (!user || !user.sleeperUserId) {
+          throw new Error('User not found in this league and no Sleeper user ID available');
+        }
+        
+        // Get all rosters and users for this league to find the matching roster
+        let leagueData;
+        try {
+          leagueData = await this.sleeperAPI.getLeagueDetailsBatch(sleeperLeagueId);
+        } catch (directAPIError) {
+          console.warn('Direct API failed for user roster fallback, using MCP fallback:', directAPIError);
+          const [rosters, users] = await Promise.all([
+            this.callMCPTool('get_league_rosters', { league_id: sleeperLeagueId }),
+            this.callMCPTool('get_league_users', { league_id: sleeperLeagueId })
+          ]);
+          leagueData = { rosters, users };
+        }
+        
+        // Find the roster that belongs to this user
+        const userRoster = leagueData.rosters?.find((roster: any) => 
+          roster.owner_id === user.sleeperUserId
+        );
+        
+        if (!userRoster) {
+          throw new Error('User roster not found in this league');
+        }
+        
+        return {
+          rosterId: userRoster.roster_id,
+          ownerId: userRoster.owner_id,
+          players: userRoster.players || [],
+          starters: userRoster.starters || [],
+          settings: userRoster.settings || {},
+        };
       }
 
       // Get all rosters using direct API first, fallback to MCP
