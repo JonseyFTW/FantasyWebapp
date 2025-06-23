@@ -369,21 +369,122 @@ Provide actionable recommendations with specific bid amounts and drop suggestion
     const messages: AIMessage[] = [
       {
         role: 'system',
-        content: 'You are a fantasy football expert. Provide a quick waiver wire pickup analysis for a single player.',
+        content: `You are a fantasy football expert. Provide a quick waiver wire pickup analysis for a single player. Use MCP tools for current data.
+
+OUTPUT REQUIREMENTS:
+You must respond with a valid JSON object containing:
+{
+  "pickup": {
+    "playerId": "string",
+    "playerName": "string",
+    "position": "string",
+    "team": "string",
+    "priority": number (1-10, 1 = highest),
+    "confidence": number (0-1),
+    "reasoning": "detailed explanation",
+    "projectedImpact": {
+      "immediateStarter": boolean,
+      "flexConsideration": boolean,
+      "depthUpgrade": boolean,
+      "futureUpside": boolean
+    },
+    "targetWeeks": [number],
+    "dropCandidates": ["playerId"],
+    "riskFactors": ["string"],
+    "upside": "string",
+    "recentTrends": {
+      "usage": "increasing|stable|decreasing",
+      "opportunity": "increasing|stable|decreasing", 
+      "production": "increasing|stable|decreasing"
+    }
+  }
+}`,
       },
       {
         role: 'user',
-        content: `Quick waiver wire analysis for player ${playerId} in league ${leagueId} for week ${week}. Get player data and provide pickup recommendation.`,
+        content: `Quick waiver wire analysis for player ${playerId} in league ${leagueId} for week ${week}. 
+        
+Get current player data including:
+- Recent performance and usage
+- Upcoming matchups and opportunities
+- Injury status and depth chart position
+- Fantasy relevance and upside potential
+
+Provide specific pickup recommendation with priority ranking.`,
       },
     ];
 
-    const response = await this.aiManager.chat(
-      { messages, maxTokens: 1000, temperature: 0.1 },
-      preferredProvider,
-      true
-    );
+    try {
+      const response = await this.aiManager.chat(
+        { messages, maxTokens: 1000, temperature: 0.1 },
+        preferredProvider,
+        true
+      );
 
-    // Parse response (implementation would depend on response format)
+      return this.parseQuickPickupResponse(response.content, playerId, week);
+    } catch (error) {
+      console.error('Error getting quick pickup recommendation:', error);
+      // Return fallback values
+      return this.getFallbackPickupRecommendation(playerId, week);
+    }
+  }
+
+  private parseQuickPickupResponse(
+    aiResponse: string, 
+    playerId: string, 
+    week: number
+  ): WaiverWirePickup {
+    try {
+      // Try to extract JSON from the response
+      const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error('No JSON found in AI response');
+      }
+
+      const parsed = JSON.parse(jsonMatch[0]);
+      
+      // Validate required fields
+      if (!parsed.pickup || typeof parsed.pickup !== 'object') {
+        throw new Error('Invalid pickup format');
+      }
+
+      const pickup = parsed.pickup;
+      
+      // Return validated pickup recommendation
+      return {
+        playerId: pickup.playerId || playerId,
+        playerName: pickup.playerName || 'Unknown Player',
+        position: pickup.position || 'UNKNOWN',
+        team: pickup.team || 'FA',
+        priority: typeof pickup.priority === 'number' ? Math.max(1, Math.min(10, pickup.priority)) : 5,
+        confidence: typeof pickup.confidence === 'number' ? Math.max(0, Math.min(1, pickup.confidence)) : 0.5,
+        reasoning: pickup.reasoning || 'Quick analysis completed',
+        projectedImpact: {
+          immediateStarter: Boolean(pickup.projectedImpact?.immediateStarter),
+          flexConsideration: Boolean(pickup.projectedImpact?.flexConsideration),
+          depthUpgrade: Boolean(pickup.projectedImpact?.depthUpgrade),
+          futureUpside: Boolean(pickup.projectedImpact?.futureUpside),
+        },
+        targetWeeks: Array.isArray(pickup.targetWeeks) ? pickup.targetWeeks : [week],
+        dropCandidates: Array.isArray(pickup.dropCandidates) ? pickup.dropCandidates : [],
+        riskFactors: Array.isArray(pickup.riskFactors) ? pickup.riskFactors : [],
+        upside: pickup.upside || 'Moderate upside potential',
+        recentTrends: {
+          usage: ['increasing', 'stable', 'decreasing'].includes(pickup.recentTrends?.usage) 
+            ? pickup.recentTrends.usage : 'stable',
+          opportunity: ['increasing', 'stable', 'decreasing'].includes(pickup.recentTrends?.opportunity) 
+            ? pickup.recentTrends.opportunity : 'stable',
+          production: ['increasing', 'stable', 'decreasing'].includes(pickup.recentTrends?.production) 
+            ? pickup.recentTrends.production : 'stable',
+        },
+      };
+    } catch (error) {
+      console.error('Error parsing quick pickup response:', error);
+      return this.getFallbackPickupRecommendation(playerId, week);
+    }
+  }
+
+  private getFallbackPickupRecommendation(playerId: string, week: number): WaiverWirePickup {
     return {
       playerId,
       playerName: 'Unknown Player',
@@ -419,21 +520,120 @@ Provide actionable recommendations with specific bid amounts and drop suggestion
     const messages: AIMessage[] = [
       {
         role: 'system',
-        content: `You are a fantasy football expert specializing in ${position} streaming recommendations.`,
+        content: `You are a fantasy football expert specializing in ${position} streaming recommendations. Use MCP tools for current data.
+
+OUTPUT REQUIREMENTS:
+You must respond with a valid JSON object containing:
+{
+  "streamingOptions": [
+    {
+      "playerId": "string",
+      "playerName": "string",
+      "position": "${position}",
+      "team": "string",
+      "priority": number (1-10, 1 = highest),
+      "confidence": number (0-1),
+      "reasoning": "detailed explanation focusing on matchup",
+      "projectedImpact": {
+        "immediateStarter": boolean,
+        "flexConsideration": boolean,
+        "depthUpgrade": boolean,
+        "futureUpside": boolean
+      },
+      "targetWeeks": [number],
+      "dropCandidates": ["playerId"],
+      "riskFactors": ["string"],
+      "upside": "string",
+      "recentTrends": {
+        "usage": "increasing|stable|decreasing",
+        "opportunity": "increasing|stable|decreasing",
+        "production": "increasing|stable|decreasing"
+      }
+    }
+  ]
+}`,
       },
       {
         role: 'user',
-        content: `Get ${position} streaming recommendations for league ${leagueId} week ${week}. Focus on matchups and availability.`,
+        content: `Get top 3-5 ${position} streaming recommendations for league ${leagueId} week ${week}. 
+
+Focus on:
+- Favorable matchups and opponent rankings
+- Availability on waiver wire
+- Recent performance trends
+- Game script and weather factors
+- Injury/rotation concerns
+
+Rank by expected weekly performance for this position.`,
       },
     ];
 
-    const response = await this.aiManager.chat(
-      { messages, maxTokens: 2000, temperature: 0.1 },
-      preferredProvider,
-      true
-    );
+    try {
+      const response = await this.aiManager.chat(
+        { messages, maxTokens: 2000, temperature: 0.1 },
+        preferredProvider,
+        true
+      );
 
-    // Parse streaming recommendations from response
-    return []; // Placeholder - would parse actual recommendations
+      return this.parseStreamingResponse(response.content, position, week);
+    } catch (error) {
+      console.error('Error getting streaming recommendations:', error);
+      // Return empty array as fallback
+      return [];
+    }
+  }
+
+  private parseStreamingResponse(
+    aiResponse: string, 
+    position: 'DEF' | 'K' | 'QB',
+    week: number
+  ): WaiverWirePickup[] {
+    try {
+      // Try to extract JSON from the response
+      const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error('No JSON found in AI response');
+      }
+
+      const parsed = JSON.parse(jsonMatch[0]);
+      
+      // Validate required fields
+      if (!parsed.streamingOptions || !Array.isArray(parsed.streamingOptions)) {
+        throw new Error('Invalid streamingOptions format');
+      }
+
+      // Map and validate each recommendation
+      return parsed.streamingOptions.map((option: any) => ({
+        playerId: option.playerId || 'unknown',
+        playerName: option.playerName || 'Unknown Player',
+        position: option.position || position,
+        team: option.team || 'FA',
+        priority: typeof option.priority === 'number' ? Math.max(1, Math.min(10, option.priority)) : 5,
+        confidence: typeof option.confidence === 'number' ? Math.max(0, Math.min(1, option.confidence)) : 0.5,
+        reasoning: option.reasoning || 'Streaming recommendation',
+        projectedImpact: {
+          immediateStarter: Boolean(option.projectedImpact?.immediateStarter),
+          flexConsideration: Boolean(option.projectedImpact?.flexConsideration),
+          depthUpgrade: Boolean(option.projectedImpact?.depthUpgrade),
+          futureUpside: Boolean(option.projectedImpact?.futureUpside),
+        },
+        targetWeeks: Array.isArray(option.targetWeeks) ? option.targetWeeks : [week],
+        dropCandidates: Array.isArray(option.dropCandidates) ? option.dropCandidates : [],
+        riskFactors: Array.isArray(option.riskFactors) ? option.riskFactors : [],
+        upside: option.upside || 'Good streaming option',
+        recentTrends: {
+          usage: ['increasing', 'stable', 'decreasing'].includes(option.recentTrends?.usage) 
+            ? option.recentTrends.usage : 'stable',
+          opportunity: ['increasing', 'stable', 'decreasing'].includes(option.recentTrends?.opportunity) 
+            ? option.recentTrends.opportunity : 'stable',
+          production: ['increasing', 'stable', 'decreasing'].includes(option.recentTrends?.production) 
+            ? option.recentTrends.production : 'stable',
+        },
+      }));
+    } catch (error) {
+      console.error('Error parsing streaming response:', error);
+      // Return empty array as fallback
+      return [];
+    }
   }
 }

@@ -54,7 +54,16 @@
       "Bash(env)",
       "mcp__puppeteer__puppeteer_navigate",
       "mcp__MCP_DOCKER__browser_navigate",
-      "mcp__MCP_DOCKER__browser_click"
+      "mcp__MCP_DOCKER__browser_click",
+      "Bash(npm run:*)",
+      "Bash(mkdir:*)",
+      "WebFetch(domain:sleepermcp-production.up.railway.app)",
+      "Bash(npm test:*)",
+      "Bash(npx tsc:*)",
+      "Bash(node:*)",
+      "mcp__MCP_DOCKER__docker",
+      "mcp__sequential-thinking__sequentialthinking",
+      "Bash(npx jest:*)"
     ],
     "deny": []
   }

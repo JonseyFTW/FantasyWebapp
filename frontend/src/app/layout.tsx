@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '@/components/auth-provider'
+import { Navigation } from '@/components/navigation'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -28,20 +29,7 @@ export default function RootLayout({
                       Fantasy Football AI
                     </h1>
                   </div>
-                  <nav className="flex space-x-4">
-                    <a href="/dashboard" className="text-gray-600 hover:text-gray-900 transition-colors">
-                      Dashboard
-                    </a>
-                    <a href="/analytics" className="text-gray-600 hover:text-gray-900 transition-colors">
-                      Analytics
-                    </a>
-                    <a href="/tools" className="text-gray-600 hover:text-gray-900 transition-colors">
-                      Tools
-                    </a>
-                    <a href="/auth/signin" className="text-gray-600 hover:text-gray-900 transition-colors">
-                      Sign In
-                    </a>
-                  </nav>
+                  <Navigation />
                 </div>
               </div>
             </header>

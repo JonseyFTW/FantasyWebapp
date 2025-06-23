@@ -9,7 +9,8 @@ const prisma = new PrismaClient();
 
 // Validation schemas
 const TokenExchangeSchema = z.object({
-  nextAuthToken: z.string().min(1, 'NextAuth token is required'),
+  userEmail: z.string().email('Valid email is required'),
+  userId: z.string().min(1, 'User ID is required'),
 });
 
 const SleeperLinkSchema = z.object({
@@ -29,24 +30,15 @@ const PreferencesUpdateSchema = z.object({
 
 /**
  * POST /api/auth/token-exchange
- * Exchange NextAuth session token for API JWT token
+ * Exchange NextAuth session info for API JWT token
  */
 router.post('/token-exchange', async (req, res) => {
   try {
-    const { nextAuthToken } = validateSchema(TokenExchangeSchema, req.body);
+    const { userEmail, userId } = validateSchema(TokenExchangeSchema, req.body);
 
-    // In a real implementation, you would verify the NextAuth token
-    // For now, we'll assume it contains user information
-    // This would typically involve calling NextAuth's getToken() function
-    
-    // TODO: Implement proper NextAuth token verification
-    // const session = await getToken({ token: nextAuthToken });
-    
-    // Mock implementation - in production, extract user from verified token
-    const mockUserId = 'user_123'; // This would come from the verified NextAuth token
-    
+    // Find user by email to ensure they exist in our database
     const user = await prisma.user.findUnique({
-      where: { id: mockUserId },
+      where: { email: userEmail },
     });
 
     if (!user) {

@@ -374,25 +374,100 @@ Provide detailed, actionable analysis that helps users make informed decisions.`
     const messages: AIMessage[] = [
       {
         role: 'system',
-        content: 'You are a fantasy football expert. Provide player trade values and tiers. Use MCP tools for current data.',
+        content: `You are a fantasy football expert. Provide player trade values and tiers. Use MCP tools for current data.
+
+OUTPUT REQUIREMENTS:
+You must respond with a valid JSON object containing:
+{
+  "playerValues": [
+    {
+      "playerId": "string",
+      "playerName": "string",
+      "value": number (0-100 scale),
+      "tier": "string (Tier 1-5)",
+      "reasoning": "brief explanation"
+    }
+  ]
+}`,
       },
       {
         role: 'user',
-        content: `Get trade values and tiers for players: ${playerIds.join(', ')} in league ${leagueId}. Use current stats and projections.`,
+        content: `Get trade values and tiers for players: ${playerIds.join(', ')} in league ${leagueId}. 
+        
+Use current stats, projections, and recent performance. Rate each player on a 0-100 scale where:
+- 90-100: Elite tier (Tier 1)
+- 80-89: High tier (Tier 2) 
+- 70-79: Mid tier (Tier 3)
+- 60-69: Low tier (Tier 4)
+- Below 60: Waiver tier (Tier 5)`,
       },
     ];
 
-    const response = await this.aiManager.chat(
-      { messages, maxTokens: 2000, temperature: 0.1 },
-      preferredProvider,
-      true
-    );
+    try {
+      const response = await this.aiManager.chat(
+        { messages, maxTokens: 2000, temperature: 0.1 },
+        preferredProvider,
+        true
+      );
 
-    // Parse player values from response (implementation would depend on AI response format)
-    return playerIds.map(playerId => ({
-      playerId,
-      value: 50, // Placeholder
-      tier: 'Tier 3', // Placeholder
-    }));
+      return this.parseTradeValueResponse(response.content, playerIds);
+    } catch (error) {
+      console.error('Error getting trade value comparison:', error);
+      // Return fallback values
+      return playerIds.map(playerId => ({
+        playerId,
+        value: 50,
+        tier: 'Tier 3',
+      }));
+    }
+  }
+
+  private parseTradeValueResponse(
+    aiResponse: string, 
+    playerIds: string[]
+  ): { playerId: string; value: number; tier: string }[] {
+    try {
+      // Try to extract JSON from the response
+      const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error('No JSON found in AI response');
+      }
+
+      const parsed = JSON.parse(jsonMatch[0]);
+      
+      // Validate required fields
+      if (!parsed.playerValues || !Array.isArray(parsed.playerValues)) {
+        throw new Error('Invalid playerValues format');
+      }
+
+      // Map the response to expected format
+      const result = parsed.playerValues.map((player: any) => ({
+        playerId: player.playerId || 'unknown',
+        value: typeof player.value === 'number' ? Math.max(0, Math.min(100, player.value)) : 50,
+        tier: player.tier || 'Tier 3',
+      }));
+
+      // Ensure we have values for all requested players
+      const resultPlayerIds = result.map((r: any) => r.playerId);
+      const missingPlayers = playerIds.filter(id => !resultPlayerIds.includes(id));
+      
+      for (const playerId of missingPlayers) {
+        result.push({
+          playerId,
+          value: 50,
+          tier: 'Tier 3',
+        });
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Error parsing trade value response:', error);
+      // Return fallback values for all players
+      return playerIds.map(playerId => ({
+        playerId,
+        value: 50,
+        tier: 'Tier 3',
+      }));
+    }
   }
 }

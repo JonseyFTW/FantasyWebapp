@@ -8,6 +8,10 @@ import { config } from 'dotenv';
 import { PrismaClient } from '@prisma/client';
 import { createClient } from 'redis';
 import { authRoutes } from './routes/auth';
+import { userRoutes } from './routes/users';
+import { sleeperRoutes } from './routes/sleeper';
+import { leagueRoutes } from './routes/leagues';
+import { playerRoutes } from './routes/players';
 
 // Load environment variables
 config();
@@ -143,6 +147,10 @@ async function startServer() {
     
     // Setup API routes
     app.use('/api/auth', authRoutes);
+    app.use('/api/users', userRoutes);
+    app.use('/api/sleeper', sleeperRoutes);
+    app.use('/api/leagues', leagueRoutes);
+    app.use('/api/players', playerRoutes);
     
     // Global error handler
     app.use((error: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
