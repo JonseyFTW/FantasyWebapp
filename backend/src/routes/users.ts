@@ -23,9 +23,15 @@ router.get('/:userIdentifier', async (req, res) => {
         displayName: true,
         avatarUrl: true,
         sleeperUserId: true,
+        sleeperUsername: true,
         preferences: true,
         createdAt: true,
         updatedAt: true,
+        userLeagues: {
+          include: {
+            league: true,
+          },
+        },
       },
     });
 
@@ -41,7 +47,9 @@ router.get('/:userIdentifier', async (req, res) => {
 
     res.json({
       success: true,
-      data: user,
+      data: {
+        user: user,
+      },
     });
   } catch (error) {
     console.error('Error fetching user:', error);
@@ -59,7 +67,7 @@ router.get('/:userIdentifier', async (req, res) => {
 router.put('/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    const { displayName, preferences, sleeperUserId } = req.body;
+    const { displayName, preferences, sleeperUserId, sleeperUsername } = req.body;
 
     const user = await prisma.user.update({
       where: { id: userId },
@@ -67,6 +75,7 @@ router.put('/:userId', async (req, res) => {
         ...(displayName && { displayName }),
         ...(preferences && { preferences }),
         ...(sleeperUserId && { sleeperUserId }),
+        ...(sleeperUsername && { sleeperUsername }),
       },
       select: {
         id: true,
@@ -74,6 +83,7 @@ router.put('/:userId', async (req, res) => {
         displayName: true,
         avatarUrl: true,
         sleeperUserId: true,
+        sleeperUsername: true,
         preferences: true,
         updatedAt: true,
       },

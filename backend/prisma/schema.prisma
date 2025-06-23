@@ -14,7 +14,8 @@ model User {
   email         String   @unique
   displayName   String   @map("display_name")
   avatarUrl     String?  @map("avatar_url")
-  sleeperUserId String?  @unique @map("sleeper_user_id")
+  sleeperUserId   String? @unique @map("sleeper_user_id")
+  sleeperUsername String? @map("sleeper_username")
   preferences   Json?
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")

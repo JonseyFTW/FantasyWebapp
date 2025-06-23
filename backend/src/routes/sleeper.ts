@@ -109,11 +109,12 @@ router.post('/sync', async (req, res) => {
       }
     }
 
-    // Update user with Sleeper data (temporarily without sleeperUsername until migration works)
+    // Update user with Sleeper data
     const updatedUser = await prisma.user.update({
       where: { id: user.id },
       data: {
         sleeperUserId: sleeperUserId,
+        sleeperUsername: sleeperUsername,
       },
     });
 
