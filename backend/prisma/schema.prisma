@@ -84,7 +84,6 @@ model League {
   name            String
   season          Int
   totalRosters    Int      @map("total_rosters")
-  status          String   @default("active")
   settings        Json
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")

@@ -140,16 +140,14 @@ router.post('/sync', async (req, res) => {
             name: league.name,
             season: parseInt(league.season) || 2024,
             totalRosters: league.total_rosters,
-            status: league.status || 'active',
-            settings: league.settings || {},
+              settings: league.settings || {},
           },
           create: {
             sleeperLeagueId: league.league_id,
             name: league.name,
             season: parseInt(league.season) || 2024,
             totalRosters: league.total_rosters,
-            status: league.status || 'active',
-            settings: league.settings || {},
+              settings: league.settings || {},
           },
         });
       } catch (leagueError) {
@@ -214,11 +212,31 @@ router.post('/sync', async (req, res) => {
       }
     }
 
+    // Count successful league saves
+    const savedLeagues = [];
+    for (const league of leagues) {
+      try {
+        const existingLeague = await prisma.league.findUnique({
+          where: { sleeperLeagueId: league.league_id }
+        });
+        if (existingLeague) {
+          savedLeagues.push(existingLeague);
+        }
+      } catch (error) {
+        console.log(`Could not verify league ${league.league_id}:`, error);
+      }
+    }
+
     res.json({
       success: true,
       data: {
         user: updatedUser,
         leagues: leagues,
+        leaguesSyncStatus: {
+          attempted: leagues.length,
+          savedToDatabase: savedLeagues.length,
+          savedLeagues: savedLeagues
+        }
       },
     });
 
