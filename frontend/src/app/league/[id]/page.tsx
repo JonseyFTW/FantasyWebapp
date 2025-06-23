@@ -384,6 +384,21 @@ export default function LeagueDetailsPage() {
         console.error('Error fetching authenticated roster data:', error);
       }
 
+      // Fetch all NFL players for player name resolution
+      try {
+        const playersResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/players/all`);
+        if (playersResponse.ok) {
+          const playersData = await playersResponse.json();
+          if (playersData.success) {
+            setAllPlayers(playersData.data);
+            console.log('Successfully loaded all NFL players data');
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching all players data:', error);
+        // Non-critical error - continue without player names
+      }
+
     } catch (err) {
       console.error('Error fetching league data:', err);
       setError(err instanceof Error ? err.message : 'Failed to load league data');

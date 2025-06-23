@@ -414,10 +414,23 @@ export class LeagueService {
     }
   }
 
-  async getAllPlayers(): Promise<any[]> {
+  async getAllPlayers(): Promise<Record<string, any>> {
     try {
-      const players = await this.callMCPTool('get_players_nfl', {});
-      return players || [];
+      console.log('Getting all NFL players');
+      
+      // Try direct API first
+      try {
+        console.log('Using direct Sleeper API service for all players');
+        const players = await this.sleeperAPI.getAllPlayers();
+        return players || {};
+      } catch (directAPIError) {
+        console.error('Direct Sleeper API service failed for all players:', directAPIError);
+        console.log('Falling back to MCP for all players');
+        
+        // Fallback to MCP
+        const players = await this.callMCPTool('get_players_nfl', {});
+        return players || {};
+      }
     } catch (error) {
       console.error('Error getting all players:', error);
       throw new Error(`Failed to get players: ${error instanceof Error ? error.message : 'Unknown error'}`);
