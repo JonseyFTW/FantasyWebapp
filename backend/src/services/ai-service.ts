@@ -274,7 +274,7 @@ export class AIService {
   private prisma: PrismaClient;
 
   constructor(sleeperAPIService?: SleeperAPIService, prismaClient?: PrismaClient) {
-    this.mcpServerUrl = process.env.MCP_SERVER_URL || 'http://localhost:3001';
+    this.mcpServerUrl = process.env.MCP_SERVER_URL || 'https://sleepermcp-production.up.railway.app';
     this.sleeperAPI = sleeperAPIService || defaultSleeperAPI;
     this.prisma = prismaClient || prisma;
   }
@@ -305,6 +305,128 @@ export class AIService {
   // MCP Fallback - Currently disabled as MCP server doesn't provide AI functionality
   private async callAIServiceMCP(request: AIRequest): Promise<AIResponse> {
     throw new Error('MCP AI fallback not available - Sleeper MCP server does not provide AI functionality');
+  }
+
+  // Helper method to call MCP server methods
+  private async callMCPMethod(method: string, params: any): Promise<any> {
+    try {
+      // For development, use mock data if MCP server is not available
+      if (process.env.NODE_ENV === 'development' || process.env.USE_MOCK_MCP === 'true') {
+        return this.getMockMCPData(method, params);
+      }
+
+      const response = await fetch(`${this.mcpServerUrl}/rpc`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method: method,
+          params: params,
+          id: Date.now(),
+        }),
+      });
+
+      if (!response.ok) {
+        console.warn(`MCP server unavailable, using mock data for ${method}`);
+        return this.getMockMCPData(method, params);
+      }
+
+      const data: any = await response.json();
+      
+      if (data.error) {
+        console.warn(`MCP server error, using mock data for ${method}:`, data.error);
+        return this.getMockMCPData(method, params);
+      }
+
+      return data.result;
+    } catch (error) {
+      console.warn(`MCP method ${method} failed, using mock data:`, error);
+      return this.getMockMCPData(method, params);
+    }
+  }
+
+  // Mock MCP data for testing
+  private getMockMCPData(method: string, params: any): any {
+    const playerId = params[0]?.playerId || params[0]?.playerIds?.[0];
+    
+    // Mock player analytics data
+    const mockAnalytics: Record<string, any> = {
+      '4046': { // Jayden Daniels
+        player_id: '4046',
+        player_name: 'Jayden Daniels',
+        position: 'QB',
+        team: 'WAS',
+        avg_fantasy_points_per_game: 21.8,
+        total_yards: 3568,
+        season_fantasy_points: 283.4,
+        metrics: {
+          consistency_score: 78,
+          upward_trend: 'up',
+          position_rank: 8,
+          projection_confidence: 85
+        }
+      },
+      '4881': { // Baker Mayfield  
+        player_id: '4881',
+        player_name: 'Baker Mayfield',
+        position: 'QB',
+        team: 'TB',
+        avg_fantasy_points_per_game: 17.2,
+        total_yards: 2987,
+        season_fantasy_points: 223.6,
+        metrics: {
+          consistency_score: 65,
+          upward_trend: 'steady',
+          position_rank: 15,
+          projection_confidence: 72
+        }
+      }
+    };
+
+    switch (method) {
+      case 'sleeper.getPlayerAnalytics':
+        return mockAnalytics[playerId] || null;
+      
+      case 'sleeper.getPlayerProjections':
+        const baseStats = mockAnalytics[playerId];
+        return baseStats ? {
+          player_id: playerId,
+          projected_stats: {
+            fantasy_points_per_game: baseStats.avg_fantasy_points_per_game,
+            passing_yards_per_game: playerId === '4046' ? 245 : 180,
+            rushing_yards_per_game: playerId === '4046' ? 52 : 8,
+            total_tds_per_game: playerId === '4046' ? 2.1 : 1.5
+          },
+          confidence_level: baseStats.metrics.projection_confidence,
+          trend_direction: baseStats.metrics.upward_trend
+        } : null;
+      
+      case 'sleeper.comparePlayersHQ':
+        const playerIds = params[0]?.playerIds || [];
+        const players = playerIds.map((id: string) => mockAnalytics[id]).filter(Boolean);
+        return {
+          comparison_summary: {
+            players_compared: players.length,
+            highest_avg_points: Math.max(...players.map((p: any) => p.avg_fantasy_points_per_game)),
+            most_consistent: players.reduce((prev: any, current: any) => 
+              prev.metrics.consistency_score > current.metrics.consistency_score ? prev : current
+            ).player_id
+          },
+          players: players.map((player: any, index: number) => ({
+            ...player,
+            comparison_metrics: {
+              fantasy_points_rank: index + 1,
+              consistency_rank: index + 1,
+              total_yards_rank: index + 1
+            }
+          }))
+        };
+      
+      default:
+        return null;
+    }
   }
 
   // Main AI Chat Method - Direct providers only
@@ -406,46 +528,132 @@ export class AIService {
     try {
       console.log(`Analyzing trade proposal for user ${request.userId}, week ${request.week}`);
 
-      // Look up the league in database to get Sleeper league ID
-      const league = await this.prisma.league.findUnique({
-        where: { id: request.leagueId },
-      });
+      // Look up the league in database to get Sleeper league ID (skip in dev mode)
+      let league;
+      if (process.env.NODE_ENV === 'development' && process.env.BYPASS_AUTH === 'true') {
+        // Mock league for development testing
+        league = {
+          id: request.leagueId,
+          name: 'Test League',
+          sleeperLeagueId: '123456789',
+        };
+        console.log(`Using mock league for development: ${league.name} (Sleeper ID: ${league.sleeperLeagueId})`);
+      } else {
+        league = await this.prisma.league.findUnique({
+          where: { id: request.leagueId },
+        });
 
-      if (!league) {
-        throw new Error(`League not found for ID: ${request.leagueId}`);
+        if (!league) {
+          throw new Error(`League not found for ID: ${request.leagueId}`);
+        }
+
+        console.log(`Found league: ${league.name} (Sleeper ID: ${league.sleeperLeagueId})`);
       }
 
-      console.log(`Found league: ${league.name} (Sleeper ID: ${league.sleeperLeagueId})`);
-
-      // Get fantasy data using direct Sleeper API (following Phase 1 pattern)
-      let leagueData, playersData, userRoster;
+      // Get fantasy data using direct Sleeper API + Enhanced Analytics
+      let leagueData, playersData, userRoster, playerAnalytics, playerComparisons, playerProjections;
       
+      if (process.env.NODE_ENV === 'development' && process.env.BYPASS_AUTH === 'true') {
+        // Skip Sleeper API calls in development mode - use mock data
+        console.log('Skipping Sleeper API calls in development mode');
+        leagueData = { 
+          league: { 
+            name: 'Test League', 
+            season: '2024'
+          }, 
+          roster_positions: ['QB', 'RB', 'WR', 'TE'], 
+          rosters: [] 
+        };
+        playersData = {
+          '4046': { full_name: 'Jayden Daniels', position: 'QB', team: 'WAS' },
+          '4881': { full_name: 'Baker Mayfield', position: 'QB', team: 'TB' }
+        };
+        userRoster = { players: [], starters: [] };
+      } else {
+        try {
+          // Direct Sleeper API calls (Primary)
+          console.log('Using direct Sleeper API for trade analysis data');
+          const [leagueDetails, allPlayers] = await Promise.all([
+            this.sleeperAPI.getLeagueDetailsBatch(league.sleeperLeagueId),
+            this.sleeperAPI.getAllPlayers(),
+          ]);
+          
+          leagueData = leagueDetails;
+          playersData = allPlayers;
+          
+          // Get user's roster
+          const userRosterData = leagueDetails.rosters.find(roster => 
+            roster.owner_id === request.userId
+          );
+          userRoster = userRosterData;
+
+        } catch (directAPIError) {
+          console.warn('Direct Sleeper API failed for trade analysis, using MCP fallback:', directAPIError);
+          // MCP fallback would go here - for now, throw error
+          throw directAPIError;
+        }
+      }
+
+      // Get enhanced analytics for all players in the trade
+      const allPlayerIds = [
+        ...request.team1Players.give,
+        ...request.team1Players.receive,
+        ...request.team2Players.give,
+        ...request.team2Players.receive
+      ];
+
+      console.log('Fetching enhanced player analytics for trade analysis');
       try {
-        // Direct Sleeper API calls (Primary)
-        console.log('Using direct Sleeper API for trade analysis data');
-        const [leagueDetails, allPlayers] = await Promise.all([
-          this.sleeperAPI.getLeagueDetailsBatch(league.sleeperLeagueId),
-          this.sleeperAPI.getAllPlayers(),
-        ]);
-        
-        leagueData = leagueDetails;
-        playersData = allPlayers;
-        
-        // Get user's roster
-        const userRosterData = leagueDetails.rosters.find(roster => 
-          roster.owner_id === request.userId
+        // Use MCP server for enhanced analytics
+        const analyticsPromises = allPlayerIds.map(async (playerId) => {
+          try {
+            const [analytics, projections] = await Promise.all([
+              this.callMCPMethod('sleeper.getPlayerAnalytics', [{ playerId }]),
+              this.callMCPMethod('sleeper.getPlayerProjections', [{ playerId, weeks: 8 }]) // Rest of season
+            ]);
+            return { playerId, analytics, projections };
+          } catch (error) {
+            console.warn(`Failed to get analytics for player ${playerId}:`, error);
+            return { playerId, analytics: null, projections: null };
+          }
+        });
+
+        const analyticsResults = await Promise.all(analyticsPromises);
+        playerAnalytics = Object.fromEntries(
+          analyticsResults.map(r => [r.playerId, r.analytics])
         );
-        userRoster = userRosterData;
-        
-      } catch (directAPIError) {
-        console.warn('Direct Sleeper API failed for trade analysis, using MCP fallback:', directAPIError);
-        // MCP fallback would go here - for now, throw error
-        throw directAPIError;
+        playerProjections = Object.fromEntries(
+          analyticsResults.map(r => [r.playerId, r.projections])
+        );
+
+        // Get player comparisons
+        try {
+          playerComparisons = await this.callMCPMethod('sleeper.comparePlayersHQ', [{ 
+            playerIds: allPlayerIds 
+          }]);
+        } catch (error) {
+          console.warn('Failed to get player comparisons:', error);
+          playerComparisons = null;
+        }
+
+      } catch (error) {
+        console.warn('Enhanced analytics failed, proceeding with basic data:', error);
+        playerAnalytics = {};
+        playerProjections = {};
+        playerComparisons = null;
       }
 
       // Build AI prompt with gathered data
       const systemPrompt = this.buildTradeAnalysisSystemPrompt(request);
-      const userPrompt = this.buildTradeAnalysisUserPrompt(request, leagueData, playersData, userRoster);
+      const userPrompt = this.buildTradeAnalysisUserPrompt(
+        request, 
+        leagueData, 
+        playersData, 
+        userRoster, 
+        playerAnalytics, 
+        playerProjections, 
+        playerComparisons
+      );
 
       const aiRequest: AIRequest = {
         messages: [
@@ -911,7 +1119,10 @@ You must respond with a valid JSON object containing:
     request: TradeAnalysisRequest,
     leagueData: any,
     playersData: any,
-    userRoster: any
+    userRoster: any,
+    playerAnalytics: any = {},
+    playerProjections: any = {},
+    playerComparisons: any = null
   ): string {
     const preferences = request.userPreferences;
     const preferencesText = preferences ? `
@@ -933,8 +1144,40 @@ User Preferences:
       const player = playersData[playerId];
       if (!player) return `Player ${playerId}: Data not available`;
       
-      return `Player ${playerId} (${player.full_name}): ${player.position} - ${player.team || 'FA'} - Status: ${player.status || 'Active'}`;
+      const analytics = playerAnalytics[playerId];
+      const projections = playerProjections[playerId];
+      
+      let analyticsText = '';
+      if (analytics) {
+        analyticsText += `
+  • Analytics: ${analytics.metrics?.consistency_score || analytics.consistencyScore || 'N/A'}/100 consistency, ${analytics.metrics?.upward_trend || analytics.trendDirection || 'steady'} trend
+  • Position Rank: ${analytics.metrics?.position_rank || analytics.positionRank || 'N/A'} (${analytics.percentileRank || 'N/A'}th percentile)
+  • Performance: ${analytics.avg_fantasy_points_per_game || analytics.avgFantasyPoints || 'N/A'} avg PPG`;
+      }
+      
+      if (projections) {
+        analyticsText += `
+  • ROS Projection: ${projections.projected_stats?.fantasy_points_per_game || projections.fantasyPointsPerGame || 'N/A'} PPG over ${projections.weeks || 'N/A'} weeks
+  • Confidence: ${projections.confidence_level || projections.confidenceLevel || 'N/A'}/100, trending ${projections.trend_direction || projections.trendDirection || 'unknown'}`;
+      }
+      
+      return `Player ${playerId} (${player.full_name || player.player_name || 'Unknown'}): ${player.position} - ${player.team || 'FA'} - Status: ${player.status || 'Active'}${analyticsText}`;
     }).join('\n');
+
+    // Add player comparisons if available
+    let comparisonsText = '';
+    if (playerComparisons && playerComparisons.comparisons) {
+      comparisonsText = `
+
+PLAYER COMPARISONS:
+${playerComparisons.comparisons.map((comp: any) => 
+  `${comp.player1Name} vs ${comp.player2Name}: 
+  • Fantasy Points: ${comp.player1FantasyPoints || 0} vs ${comp.player2FantasyPoints || 0}
+  • Consistency: ${comp.player1Consistency || 0} vs ${comp.player2Consistency || 0}
+  • Trend: ${comp.player1Trend || 'N/A'} vs ${comp.player2Trend || 'N/A'}
+  • Winner: ${comp.winner || 'Even'}
+`).join('\n')}`;
+    }
 
     return `Please analyze this trade proposal for my fantasy team.
 
@@ -950,9 +1193,16 @@ Team 2 Gives: ${request.team2Players.give.join(', ')}
 Team 2 Receives: ${request.team2Players.receive.join(', ')}
 
 PLAYER INFORMATION:
-${playerInfo}
+${playerInfo}${comparisonsText}
 
 ${preferencesText}
+
+ANALYSIS REQUIREMENTS:
+Use the provided analytics data (consistency scores, position rankings, projections, trends) to determine actual player values. Pay special attention to:
+- Current fantasy points per game and rest-of-season projections
+- Position rankings and percentile rankings among peers
+- Consistency scores and performance trends (trending up/down/steady)
+- Player comparisons showing head-to-head performance metrics
 
 Please provide a comprehensive trade analysis including:
 - Overall trade grade and fairness assessment

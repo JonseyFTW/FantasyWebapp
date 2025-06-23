@@ -7,6 +7,23 @@ import {
   LineupOptimizerRequest
 } from '../services/ai-service';
 import { authenticateToken, AuthenticatedRequest } from '../middleware/auth';
+
+// Development middleware for testing (bypasses auth)
+const devAuth = (req: AuthenticatedRequest, res: express.Response, next: express.NextFunction) => {
+  if (process.env.NODE_ENV === 'development' && process.env.BYPASS_AUTH === 'true') {
+    // Mock user for development testing
+    req.user = {
+      id: 'dev-user-123',
+      email: 'dev@test.com',
+      displayName: 'Dev User',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    req.userId = 'dev-user-123';
+    return next();
+  }
+  return authenticateToken(req, res, next);
+};
 import { z } from 'zod';
 
 const router = express.Router();
@@ -146,7 +163,7 @@ router.post('/start-sit', authenticateToken, async (req: AuthenticatedRequest, r
 
 // POST /api/ai/chat
 // General AI chat endpoint with authentication
-router.post('/chat', authenticateToken, async (req: AuthenticatedRequest, res) => {
+router.post('/chat', devAuth, async (req: AuthenticatedRequest, res) => {
   try {
     console.log(`AI chat request from user ${req.userId}`);
     
@@ -222,7 +239,7 @@ router.get('/health', async (req, res) => {
 
 // POST /api/ai/trade-analysis
 // Trade analysis endpoint with authentication
-router.post('/trade-analysis', authenticateToken, async (req: AuthenticatedRequest, res) => {
+router.post('/trade-analysis', devAuth, async (req: AuthenticatedRequest, res) => {
   try {
     console.log(`Trade analysis request from user ${req.userId}`);
     
