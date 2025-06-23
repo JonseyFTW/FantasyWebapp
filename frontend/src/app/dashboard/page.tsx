@@ -16,45 +16,40 @@ import {
   BarChart3,
   Calendar,
   Star,
-  AlertCircle
+  AlertCircle,
+  Loader2,
+  RefreshCw
 } from 'lucide-react';
 import { StartSitAnalyzer } from '@/components/ai/start-sit-analyzer';
 import { TradeAnalyzer } from '@/components/ai/trade-analyzer';
 import { LineupOptimizer } from '@/components/ai/lineup-optimizer';
 import Link from 'next/link';
 
-// Mock data for demonstration - would come from API calls to Sleeper MCP server
-const mockUserData = {
-  leagues: [
-    {
-      id: 'league_1',
-      name: 'Championship League',
-      totalTeams: 12,
-      currentWeek: 14,
-      userRank: 3,
-      wins: 9,
-      losses: 4,
-      pointsFor: 1624.5,
-      pointsAgainst: 1456.2,
-    },
-    {
-      id: 'league_2', 
-      name: 'Friends & Family',
-      totalTeams: 10,
-      currentWeek: 14,
-      userRank: 1,
-      wins: 11,
-      losses: 2,
-      pointsFor: 1789.3,
-      pointsAgainst: 1345.1,
-    },
-  ],
-  recentActivity: [
-    { type: 'trade', description: 'Traded CMC for Tyreek Hill + Josh Jacobs', league: 'Championship League', timestamp: '2 hours ago' },
-    { type: 'waiver', description: 'Picked up Gus Edwards', league: 'Friends & Family', timestamp: '1 day ago' },
-    { type: 'lineup', description: 'Optimized Week 14 lineup', league: 'Championship League', timestamp: '2 days ago' },
-  ],
-};
+// Types for real league data
+interface League {
+  id: string;
+  name: string;
+  season: number;
+  totalRosters: number;
+  status: string;
+  sleeperLeagueId: string;
+}
+
+interface UserLeague {
+  league: League;
+  role: string;
+  sleeperRosterId: string;
+}
+
+interface UserData {
+  leagues: UserLeague[];
+  recentActivity: Array<{
+    type: string;
+    description: string;
+    league: string;
+    timestamp: string;
+  }>;
+}
 
 const mockPlayerData = {
   availablePlayers: [
@@ -85,12 +80,64 @@ const mockTeamData = [
 
 export default function DashboardPage() {
   const { user, requireAuth } = useAuth();
-  const [selectedLeague, setSelectedLeague] = useState(mockUserData.leagues[0].id);
+  const [userData, setUserData] = useState<UserData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedLeague, setSelectedLeague] = useState<string>('');
   const [currentWeek, setCurrentWeek] = useState(14);
+
+  const fetchUserLeagues = async () => {
+    if (!user?.email) return;
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/users/${user.email}`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch user data: ${response.status}`);
+      }
+      
+      const userData = await response.json();
+      
+      if (userData.success && userData.data.user) {
+        const userWithLeagues = userData.data.user;
+        
+        // Transform the data to match our interface
+        const transformedData: UserData = {
+          leagues: userWithLeagues.userLeagues || [],
+          recentActivity: [
+            { type: 'sync', description: 'Synced leagues from Sleeper', league: 'All Leagues', timestamp: 'Recently' }
+          ]
+        };
+        
+        setUserData(transformedData);
+        
+        // Set first league as selected if available
+        if (transformedData.leagues.length > 0) {
+          setSelectedLeague(transformedData.leagues[0].league.id);
+        }
+      } else {
+        throw new Error('Invalid response format');
+      }
+    } catch (err) {
+      console.error('Error fetching user leagues:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load leagues');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     requireAuth();
   }, [requireAuth]);
+
+  useEffect(() => {
+    if (user) {
+      fetchUserLeagues();
+    }
+  }, [user]);
 
   if (!user) {
     return (
@@ -100,7 +147,56 @@ export default function DashboardPage() {
     );
   }
 
-  const selectedLeagueData = mockUserData.leagues.find(l => l.id === selectedLeague);
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Loading your leagues...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-4" />
+          <p className="text-red-600 mb-4">{error}</p>
+          <Button onClick={fetchUserLeagues} variant="outline">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Try Again
+          </Button>
+          <div className="mt-4">
+            <Link href="/settings">
+              <Button variant="link">Go to Settings to sync Sleeper data</Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!userData || userData.leagues.length === 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Users className="h-8 w-8 text-gray-400 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2">No leagues found</h2>
+          <p className="text-gray-600 mb-4">You haven't synced any Sleeper leagues yet.</p>
+          <Link href="/settings">
+            <Button>
+              <Star className="h-4 w-4 mr-2" />
+              Sync Your Sleeper Leagues
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const selectedLeagueData = userData.leagues.find(ul => ul.league.id === selectedLeague);
 
   return (
     <div className="space-y-6">
@@ -122,28 +218,28 @@ export default function DashboardPage() {
 
       {/* League Overview */}
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {mockUserData.leagues.map((league) => (
-          <Card key={league.id} className="card-hover cursor-pointer" onClick={() => setSelectedLeague(league.id)}>
+        {userData.leagues.map((userLeague) => (
+          <Card key={userLeague.league.id} className="card-hover cursor-pointer" onClick={() => setSelectedLeague(userLeague.league.id)}>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">{league.name}</CardTitle>
-                <Badge variant={league.id === selectedLeague ? 'default' : 'outline'}>
-                  #{league.userRank}
+                <CardTitle className="text-lg">{userLeague.league.name}</CardTitle>
+                <Badge variant={userLeague.league.id === selectedLeague ? 'default' : 'outline'}>
+                  {userLeague.league.season}
                 </Badge>
               </div>
               <CardDescription>
-                {league.wins}-{league.losses} • {league.totalTeams} teams
+                {userLeague.league.totalRosters} teams • {userLeague.league.status}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <div className="font-medium text-gray-900">{league.pointsFor}</div>
-                  <div className="text-gray-600">Points For</div>
+                  <div className="font-medium text-gray-900">{userLeague.role}</div>
+                  <div className="text-gray-600">Role</div>
                 </div>
                 <div>
-                  <div className="font-medium text-gray-900">{league.pointsAgainst}</div>
-                  <div className="text-gray-600">Points Against</div>
+                  <div className="font-medium text-gray-900">{userLeague.league.season}</div>
+                  <div className="text-gray-600">Season</div>
                 </div>
               </div>
             </CardContent>
@@ -212,39 +308,36 @@ export default function DashboardPage() {
         {/* Quick Stats */}
         <Card>
           <CardHeader>
-            <CardTitle>Quick Stats</CardTitle>
+            <CardTitle>League Info</CardTitle>
             <CardDescription>
-              {selectedLeagueData?.name} performance
+              {selectedLeagueData?.league.name} details
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-4">
               <div className="text-center p-4 bg-blue-50 rounded-lg">
                 <div className="text-2xl font-bold text-blue-600">
-                  {selectedLeagueData?.userRank}
+                  {selectedLeagueData?.league.totalRosters || 0}
                 </div>
-                <div className="text-sm text-blue-600">Current Rank</div>
+                <div className="text-sm text-blue-600">Total Teams</div>
               </div>
               <div className="text-center p-4 bg-green-50 rounded-lg">
                 <div className="text-2xl font-bold text-green-600">
-                  {selectedLeagueData ? 
-                    ((selectedLeagueData.wins / (selectedLeagueData.wins + selectedLeagueData.losses)) * 100).toFixed(0) : 0}%
+                  {selectedLeagueData?.league.season || 2024}
                 </div>
-                <div className="text-sm text-green-600">Win Rate</div>
+                <div className="text-sm text-green-600">Season</div>
               </div>
               <div className="text-center p-4 bg-purple-50 rounded-lg">
                 <div className="text-2xl font-bold text-purple-600">
-                  {selectedLeagueData?.pointsFor ? 
-                    (selectedLeagueData.pointsFor / (selectedLeagueData.wins + selectedLeagueData.losses)).toFixed(1) : 0}
+                  {selectedLeagueData?.role || 'Member'}
                 </div>
-                <div className="text-sm text-purple-600">Avg PPG</div>
+                <div className="text-sm text-purple-600">Your Role</div>
               </div>
               <div className="text-center p-4 bg-orange-50 rounded-lg">
                 <div className="text-2xl font-bold text-orange-600">
-                  {selectedLeagueData?.pointsFor && selectedLeagueData?.pointsAgainst ? 
-                    (selectedLeagueData.pointsFor - selectedLeagueData.pointsAgainst).toFixed(1) : 0}
+                  {selectedLeagueData?.league.status || 'Active'}
                 </div>
-                <div className="text-sm text-orange-600">Point Diff</div>
+                <div className="text-sm text-orange-600">Status</div>
               </div>
             </div>
           </CardContent>
@@ -260,7 +353,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {mockUserData.recentActivity.map((activity, index) => (
+              {userData.recentActivity.map((activity, index) => (
                 <div key={index} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
                   <div className="flex-shrink-0">
                     {activity.type === 'trade' && <Scale className="h-5 w-5 text-blue-600" />}

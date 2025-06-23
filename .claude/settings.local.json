@@ -57,7 +57,10 @@
       "mcp__MCP_DOCKER__browser_click",
       "Bash(npm run:*)",
       "Bash(mkdir:*)",
-      "WebFetch(domain:sleepermcp-production.up.railway.app)"
+      "WebFetch(domain:sleepermcp-production.up.railway.app)",
+      "Bash(npm test:*)",
+      "Bash(npx tsc:*)",
+      "Bash(node:*)"
     ],
     "deny": []
   }

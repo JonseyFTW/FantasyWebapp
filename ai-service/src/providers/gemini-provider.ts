@@ -67,37 +67,67 @@ export class GeminiProvider extends BaseAIProvider {
 
       // Handle function calling if tools are provided
       if (request.tools && request.tools.length > 0) {
-        const tools = request.tools.map(tool => ({
-          function_declarations: [{
-            name: tool.name,
-            description: tool.description,
-            parameters: tool.parameters,
-          }],
-        }));
+        // Note: Current Gemini SDK version (0.2.1) has limited function calling support
+        // Fall back to text-based instruction for tool usage
+        const toolDescriptions = request.tools.map(tool => 
+          `- ${tool.name}: ${tool.description}`
+        ).join('\n');
+        
+        const enhancedPrompt = `${lastMessage.content}
 
-        const modelWithTools = this.client.getGenerativeModel({
-          model: this.config.model,
-        });
+AVAILABLE TOOLS:
+${toolDescriptions}
 
-        const chat = modelWithTools.startChat({ history });
-        const result = await chat.sendMessage(lastMessage.content);
+If you need to use any tools, please respond with clear instructions about which tool to call and with what parameters. Format any tool calls as JSON objects with the tool name and parameters.`;
+
+        const chat = model.startChat({ history });
+        const result = await chat.sendMessage(enhancedPrompt);
         
         const response = await result.response;
         const text = response.text();
         
-        // Parse function calls from response (Gemini specific implementation)
+        // Attempt to parse tool calls from text response
         const toolCalls: any[] = [];
-        // Note: Current Gemini API may not support function calls in the same way
-        // This is a placeholder for future implementation
+        try {
+          // Look for JSON-like patterns that might indicate tool calls
+          const jsonPattern = /\{[^}]*"(name|tool|function)"\s*:\s*"([^"]+)"[^}]*\}/gi;
+          const matches = text.match(jsonPattern);
+          
+          if (matches) {
+            matches.forEach(match => {
+              try {
+                const parsed = JSON.parse(match);
+                if (parsed.name || parsed.tool || parsed.function) {
+                  toolCalls.push({
+                    type: 'function',
+                    function: {
+                      name: parsed.name || parsed.tool || parsed.function,
+                      arguments: JSON.stringify(parsed.parameters || parsed.args || {}),
+                    },
+                  });
+                }
+              } catch (e) {
+                // Ignore parsing errors for individual matches
+              }
+            });
+          }
+        } catch (error) {
+          // Tool call parsing failed, continue without tool calls
+        }
+
+        // Estimate token usage based on text length
+        const estimatedPromptTokens = Math.ceil((enhancedPrompt.length + prompt.length) / 4);
+        const estimatedCompletionTokens = Math.ceil(text.length / 4);
+        const usage = {
+          promptTokens: estimatedPromptTokens,
+          completionTokens: estimatedCompletionTokens,
+          totalTokens: estimatedPromptTokens + estimatedCompletionTokens,
+        };
 
         return {
           content: text,
           toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
-          usage: {
-            promptTokens: 0,
-            completionTokens: 0,
-            totalTokens: 0,
-          },
+          usage,
           finishReason: response.candidates?.[0]?.finishReason || undefined,
           provider: this.provider,
           model: this.config.model,
@@ -110,13 +140,18 @@ export class GeminiProvider extends BaseAIProvider {
         const response = await result.response;
         const text = response.text();
 
+        // Estimate token usage based on text length (approximate: 1 token ≈ 4 characters)
+        const estimatedPromptTokens = Math.ceil((lastMessage.content.length + prompt.length) / 4);
+        const estimatedCompletionTokens = Math.ceil(text.length / 4);
+        const usage = {
+          promptTokens: estimatedPromptTokens,
+          completionTokens: estimatedCompletionTokens,
+          totalTokens: estimatedPromptTokens + estimatedCompletionTokens,
+        };
+
         return {
           content: text,
-          usage: {
-            promptTokens: 0,
-            completionTokens: 0,
-            totalTokens: 0,
-          },
+          usage,
           finishReason: response.candidates?.[0]?.finishReason || undefined,
           provider: this.provider,
           model: this.config.model,

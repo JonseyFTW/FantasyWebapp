@@ -100,8 +100,8 @@ router.post('/sync', async (req, res) => {
       });
 
       if (leaguesResponse.ok) {
-        const seasonLeagues = await leaguesResponse.json();
-        if (seasonLeagues && seasonLeagues.length > 0) {
+        const seasonLeagues = await leaguesResponse.json() as any[];
+        if (seasonLeagues && Array.isArray(seasonLeagues) && seasonLeagues.length > 0) {
           leagues.push(...seasonLeagues);
         }
       } else {
@@ -205,8 +205,8 @@ router.get('/user/:sleeperUserId/leagues', async (req, res) => {
       });
 
       if (leaguesResponse.ok) {
-        const seasonLeagues = await leaguesResponse.json();
-        if (seasonLeagues && seasonLeagues.length > 0) {
+        const seasonLeagues = await leaguesResponse.json() as any[];
+        if (seasonLeagues && Array.isArray(seasonLeagues) && seasonLeagues.length > 0) {
           leagues.push(...seasonLeagues);
         }
       } else {

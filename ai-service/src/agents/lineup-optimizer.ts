@@ -506,22 +506,67 @@ Be thorough but actionable in your recommendations.`;
     const messages: AIMessage[] = [
       {
         role: 'system',
-        content: `You are a fantasy football expert specializing in player comparisons for lineup decisions.`,
+        content: `You are a fantasy football expert specializing in player comparisons for lineup decisions. Use MCP tools for current data.
+
+OUTPUT REQUIREMENTS:
+You must respond with a valid JSON object containing:
+{
+  "playerProjections": [
+    {
+      "playerId": "string",
+      "playerName": "string",
+      "position": "string",
+      "team": "string",
+      "opponent": "string",
+      "projectedPoints": {
+        "floor": number,
+        "expected": number,
+        "ceiling": number
+      },
+      "confidence": number (0-1),
+      "startProbability": number (0-100),
+      "variance": number,
+      "matchupRating": "excellent|good|average|poor|terrible",
+      "factors": {
+        "recentForm": number (-2 to +2),
+        "matchupAdvantage": number (-2 to +2),
+        "weatherImpact": number (-2 to +2),
+        "injuryRisk": number (0-2),
+        "gameScript": number (-2 to +2)
+      },
+      "reasoning": "detailed explanation"
+    }
+  ]
+}`,
       },
       {
         role: 'user',
-        content: `Compare these ${position} players for week ${week} in league ${leagueId}: ${playerIds.join(', ')}. Provide detailed projections and start/sit recommendations.`,
+        content: `Compare these ${position} players for week ${week} in league ${leagueId}: ${playerIds.join(', ')}. 
+
+Provide detailed projections including:
+- Fantasy points projections (floor/expected/ceiling)
+- Matchup analysis and difficulty
+- Recent form and usage trends
+- Weather and game script factors
+- Start/sit recommendations with confidence
+
+Rank by expected fantasy points for week ${week}.`,
       },
     ];
 
-    const response = await this.aiManager.chat(
-      { messages, maxTokens: 3000, temperature: 0.1 },
-      preferredProvider,
-      true
-    );
+    try {
+      const response = await this.aiManager.chat(
+        { messages, maxTokens: 3000, temperature: 0.1 },
+        preferredProvider,
+        true
+      );
 
-    // Parse player comparison from response
-    return this.validatePlayerProjections([]); // Placeholder - would parse actual projections
+      const parsed = this.parsePlayerProjectionsResponse(response.content, playerIds);
+      return this.validatePlayerProjections(parsed);
+    } catch (error) {
+      console.error('Error getting player comparison:', error);
+      return this.validatePlayerProjections([]);
+    }
   }
 
   async getPositionalRankings(
@@ -533,21 +578,116 @@ Be thorough but actionable in your recommendations.`;
     const messages: AIMessage[] = [
       {
         role: 'system',
-        content: `You are a fantasy football expert. Provide weekly positional rankings with detailed projections.`,
+        content: `You are a fantasy football expert. Provide weekly positional rankings with detailed projections. Use MCP tools for current data.
+
+OUTPUT REQUIREMENTS:
+You must respond with a valid JSON object containing:
+{
+  "playerProjections": [
+    {
+      "playerId": "string",
+      "playerName": "string",
+      "position": "string",
+      "team": "string",
+      "opponent": "string",
+      "projectedPoints": {
+        "floor": number,
+        "expected": number,
+        "ceiling": number
+      },
+      "confidence": number (0-1),
+      "startProbability": number (0-100),
+      "variance": number,
+      "matchupRating": "excellent|good|average|poor|terrible",
+      "factors": {
+        "recentForm": number (-2 to +2),
+        "matchupAdvantage": number (-2 to +2),
+        "weatherImpact": number (-2 to +2),
+        "injuryRisk": number (0-2),
+        "gameScript": number (-2 to +2)
+      },
+      "reasoning": "detailed explanation"
+    }
+  ]
+}`,
       },
       {
         role: 'user',
-        content: `Get ${position} rankings for week ${week} in league ${leagueId}. Include projections, matchup analysis, and start/sit tiers.`,
+        content: `Get top ${position} rankings for week ${week} in league ${leagueId}. 
+
+Provide top 15-20 players with:
+- Fantasy points projections (floor/expected/ceiling)
+- Matchup analysis and difficulty ratings
+- Recent form and usage trends
+- Weather and game script considerations
+- Start/sit tier classifications
+
+Rank by expected fantasy points for week ${week}.`,
       },
     ];
 
-    const response = await this.aiManager.chat(
-      { messages, maxTokens: 4000, temperature: 0.1 },
-      preferredProvider,
-      true
-    );
+    try {
+      const response = await this.aiManager.chat(
+        { messages, maxTokens: 4000, temperature: 0.1 },
+        preferredProvider,
+        true
+      );
 
-    // Parse positional rankings from response
-    return this.validatePlayerProjections([]); // Placeholder - would parse actual rankings
+      const parsed = this.parsePlayerProjectionsResponse(response.content, []);
+      return this.validatePlayerProjections(parsed);
+    } catch (error) {
+      console.error('Error getting positional rankings:', error);
+      return this.validatePlayerProjections([]);
+    }
+  }
+
+  private parsePlayerProjectionsResponse(
+    aiResponse: string, 
+    expectedPlayerIds: string[]
+  ): PlayerProjection[] {
+    try {
+      // Try to extract JSON from the response
+      const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error('No JSON found in AI response');
+      }
+
+      const parsed = JSON.parse(jsonMatch[0]);
+      
+      // Validate required fields
+      if (!parsed.playerProjections || !Array.isArray(parsed.playerProjections)) {
+        throw new Error('Invalid playerProjections format');
+      }
+
+      // Map and validate each projection
+      return parsed.playerProjections.map((proj: any) => ({
+        playerId: proj.playerId || 'unknown',
+        playerName: proj.playerName || 'Unknown Player',
+        position: proj.position || 'UNKNOWN',
+        team: proj.team || 'UNKNOWN',
+        opponent: proj.opponent || 'UNKNOWN',
+        projectedPoints: {
+          floor: typeof proj.projectedPoints?.floor === 'number' ? proj.projectedPoints.floor : 5,
+          expected: typeof proj.projectedPoints?.expected === 'number' ? proj.projectedPoints.expected : 10,
+          ceiling: typeof proj.projectedPoints?.ceiling === 'number' ? proj.projectedPoints.ceiling : 15,
+        },
+        confidence: typeof proj.confidence === 'number' ? Math.max(0, Math.min(1, proj.confidence)) : 0.5,
+        startProbability: typeof proj.startProbability === 'number' ? Math.max(0, Math.min(100, proj.startProbability)) : 50,
+        variance: typeof proj.variance === 'number' ? Math.max(0, proj.variance) : 3,
+        matchupRating: ['excellent', 'good', 'average', 'poor', 'terrible'].includes(proj.matchupRating) 
+          ? proj.matchupRating : 'average',
+        factors: {
+          recentForm: typeof proj.factors?.recentForm === 'number' ? Math.max(-2, Math.min(2, proj.factors.recentForm)) : 0,
+          matchupAdvantage: typeof proj.factors?.matchupAdvantage === 'number' ? Math.max(-2, Math.min(2, proj.factors.matchupAdvantage)) : 0,
+          weatherImpact: typeof proj.factors?.weatherImpact === 'number' ? Math.max(-2, Math.min(2, proj.factors.weatherImpact)) : 0,
+          injuryRisk: typeof proj.factors?.injuryRisk === 'number' ? Math.max(0, Math.min(2, proj.factors.injuryRisk)) : 0,
+          gameScript: typeof proj.factors?.gameScript === 'number' ? Math.max(-2, Math.min(2, proj.factors.gameScript)) : 0,
+        },
+        reasoning: proj.reasoning || 'Projection analysis completed',
+      }));
+    } catch (error) {
+      console.error('Error parsing player projections response:', error);
+      return [];
+    }
   }
 }

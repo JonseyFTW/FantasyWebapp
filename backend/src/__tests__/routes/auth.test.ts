@@ -2,7 +2,7 @@ import request from 'supertest';
 import { Express } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { createToken } from '../../middleware/auth';
-import authRouter from '../../routes/auth';
+import { authRoutes } from '../../routes/auth';
 import express from 'express';
 
 // Mock Prisma
@@ -24,7 +24,7 @@ describe('Auth Routes', () => {
   beforeAll(() => {
     app = express();
     app.use(express.json());
-    app.use('/api/auth', authRouter);
+    app.use('/api/auth', authRoutes);
     
     // Set environment variables
     process.env.JWT_SECRET = 'test-secret';
