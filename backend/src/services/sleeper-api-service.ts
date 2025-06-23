@@ -240,17 +240,6 @@ export class SleeperAPIService {
       throw error;
     }
   }
-
-  async getAllPlayers(): Promise<Record<string, any>> {
-    try {
-      console.log('Fetching all NFL players from Sleeper API');
-      const players = await this.makeRequest<Record<string, any>>('/players/nfl');
-      return players || {};
-    } catch (error) {
-      console.error('Failed to fetch all players:', error);
-      throw error;
-    }
-  }
 }
 
 export const sleeperAPIService = new SleeperAPIService();

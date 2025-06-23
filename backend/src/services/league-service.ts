@@ -414,7 +414,7 @@ export class LeagueService {
     }
   }
 
-  async getAllPlayers(): Promise<Record<string, any>> {
+  async getAllPlayers(): Promise<{ [playerId: string]: any }> {
     try {
       console.log('Getting all NFL players');
       
