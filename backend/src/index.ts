@@ -12,6 +12,7 @@ import { userRoutes } from './routes/users';
 import { sleeperRoutes } from './routes/sleeper';
 import { leagueRoutes } from './routes/leagues';
 import { playerRoutes } from './routes/players';
+import { aiRoutes } from './routes/ai';
 
 // Load environment variables
 config();
@@ -151,6 +152,7 @@ async function startServer() {
     app.use('/api/sleeper', sleeperRoutes);
     app.use('/api/leagues', leagueRoutes);
     app.use('/api/players', playerRoutes);
+    app.use('/api/ai', aiRoutes);
     
     // Global error handler
     app.use((error: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {

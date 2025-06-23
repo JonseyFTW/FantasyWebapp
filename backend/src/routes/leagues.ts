@@ -147,7 +147,7 @@ router.get('/:leagueId/roster/:userId', authenticateToken, async (req: Authentic
     const { leagueId, userId } = req.params;
     const authenticatedUserId = req.userId;
 
-    // Verify the authenticated user is requesting their own roster
+    // The userId in the URL should be the database user ID, which should match the authenticated user
     if (authenticatedUserId !== userId) {
       return res.status(403).json({
         success: false,
