@@ -3,6 +3,7 @@
 
 -- Add missing columns if they don't exist
 ALTER TABLE "leagues" ADD COLUMN IF NOT EXISTS "status" TEXT DEFAULT 'active';
+ALTER TABLE "leagues" ADD COLUMN IF NOT EXISTS "scoring_format" TEXT NOT NULL DEFAULT 'standard';
 ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "sleeper_username" TEXT;
 
 -- Create indexes if they don't exist  

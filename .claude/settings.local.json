@@ -60,7 +60,8 @@
       "WebFetch(domain:sleepermcp-production.up.railway.app)",
       "Bash(npm test:*)",
       "Bash(npx tsc:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "mcp__MCP_DOCKER__docker"
     ],
     "deny": []
   }

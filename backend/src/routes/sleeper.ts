@@ -140,14 +140,16 @@ router.post('/sync', async (req, res) => {
             name: league.name,
             season: parseInt(league.season) || 2024,
             totalRosters: league.total_rosters,
-              settings: league.settings || {},
+            scoringFormat: league.scoring_settings?.rec ? 'ppr' : 'standard',
+            settings: league.settings || {},
           },
           create: {
             sleeperLeagueId: league.league_id,
             name: league.name,
             season: parseInt(league.season) || 2024,
             totalRosters: league.total_rosters,
-              settings: league.settings || {},
+            scoringFormat: league.scoring_settings?.rec ? 'ppr' : 'standard',
+            settings: league.settings || {},
           },
         });
       } catch (leagueError) {
@@ -162,20 +164,48 @@ router.post('/sync', async (req, res) => {
               name: league.name,
               season: parseInt(league.season) || 2024,
               totalRosters: league.total_rosters,
-              settings: league.settings || {},
+            scoringFormat: league.scoring_settings?.rec ? 'ppr' : 'standard',
+            settings: league.settings || {},
             },
             create: {
               sleeperLeagueId: league.league_id,
               name: league.name,
               season: parseInt(league.season) || 2024,
               totalRosters: league.total_rosters,
-              settings: league.settings || {},
+            scoringFormat: league.scoring_settings?.rec ? 'ppr' : 'standard',
+            settings: league.settings || {},
             },
           });
           console.log(`League ${league.league_id} saved without status field (fallback)`);
         } catch (fallbackError) {
-          console.error(`Failed to save league ${league.league_id} even with fallback:`, fallbackError);
-          continue; // Skip this league and continue with others
+          console.error(`Second fallback error for league ${league.league_id}:`, fallbackError);
+          // Third fallback: try without scoring_format field (for older database schemas)
+          try {
+            await prisma.league.upsert({
+              where: { 
+                sleeperLeagueId: league.league_id 
+              },
+              update: {
+                name: league.name,
+                season: parseInt(league.season) || 2024,
+                totalRosters: league.total_rosters,
+                scoringFormat: 'standard', // Default fallback value
+                settings: league.settings || {},
+              },
+              create: {
+                sleeperLeagueId: league.league_id,
+                name: league.name,
+                season: parseInt(league.season) || 2024,
+                totalRosters: league.total_rosters,
+                scoringFormat: 'standard', // Default fallback value
+                settings: league.settings || {},
+              },
+            });
+            console.log(`League ${league.league_id} saved without scoring_format field (final fallback)`);
+          } catch (finalError) {
+            console.error(`Failed to save league ${league.league_id} with all fallbacks:`, finalError);
+            continue; // Skip this league and continue with others
+          }
         }
       }
 
