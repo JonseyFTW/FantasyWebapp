@@ -362,7 +362,9 @@ export default function LeagueDetailsPage() {
       // Fetch user's roster
       try {
         const { apiClient } = await import('../../../lib/api-client');
-        const rosterResponse = await apiClient.get(`/api/leagues/${leagueId}/roster/${user.id}`);
+        const databaseUserId = await apiClient.getDatabaseUserId();
+        
+        const rosterResponse = await apiClient.get(`/api/leagues/${leagueId}/roster/${databaseUserId}`);
         if (rosterResponse.ok) {
           const rosterData = await rosterResponse.json();
           if (rosterData.success) {
@@ -371,7 +373,7 @@ export default function LeagueDetailsPage() {
         }
 
         // Fetch user's roster players for Start/Sit
-        const playersResponse = await apiClient.get(`/api/leagues/${leagueId}/players/${user.id}`);
+        const playersResponse = await apiClient.get(`/api/leagues/${leagueId}/players/${databaseUserId}`);
         if (playersResponse.ok) {
           const playersData = await playersResponse.json();
           if (playersData.success) {

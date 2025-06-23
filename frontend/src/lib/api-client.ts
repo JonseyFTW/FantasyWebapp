@@ -2,7 +2,7 @@ import { getSession } from 'next-auth/react';
 
 class ApiClient {
   private baseUrl: string;
-  private tokenCache: { token: string; expires: number } | null = null;
+  private tokenCache: { token: string; expires: number; userId: string } | null = null;
 
   constructor() {
     this.baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
@@ -44,6 +44,7 @@ class ApiClient {
     // Cache the token (assuming 1 hour expiry for safety)
     this.tokenCache = {
       token: data.data.token,
+      userId: data.data.user.id,
       expires: Date.now() + (60 * 60 * 1000), // 1 hour
     };
 
@@ -110,6 +111,22 @@ class ApiClient {
   async delete(endpoint: string): Promise<Response> {
     const url = endpoint.startsWith('http') ? endpoint : `${this.baseUrl}${endpoint}`;
     return this.authenticatedFetch(url, { method: 'DELETE' });
+  }
+
+  // Get the database user ID for API calls
+  async getDatabaseUserId(): Promise<string> {
+    if (this.tokenCache && this.tokenCache.expires > Date.now()) {
+      return this.tokenCache.userId;
+    }
+    
+    // Get token which will cache the user ID
+    await this.getBackendJWT();
+    
+    if (!this.tokenCache?.userId) {
+      throw new Error('No user ID available');
+    }
+    
+    return this.tokenCache.userId;
   }
 
   // Clear token cache (useful for logout)
