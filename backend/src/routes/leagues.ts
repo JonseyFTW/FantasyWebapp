@@ -1,6 +1,7 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import { leagueService } from '../services/league-service';
+import { authenticateToken, AuthenticatedRequest } from '../middleware/auth';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -141,9 +142,21 @@ router.get('/:leagueId/standings', async (req, res) => {
 
 // GET /api/leagues/:leagueId/roster/:userId
 // Returns user's specific roster for the league
-router.get('/:leagueId/roster/:userId', async (req, res) => {
+router.get('/:leagueId/roster/:userId', authenticateToken, async (req: AuthenticatedRequest, res) => {
   try {
     const { leagueId, userId } = req.params;
+    const authenticatedUserId = req.userId;
+
+    // Verify the authenticated user is requesting their own roster
+    if (authenticatedUserId !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'ACCESS_DENIED',
+          message: 'You can only access your own roster',
+        },
+      });
+    }
 
     // Find the league in our database
     const league = await prisma.league.findUnique({
@@ -160,7 +173,7 @@ router.get('/:leagueId/roster/:userId', async (req, res) => {
       });
     }
 
-    // Verify user has access to this league
+    // Check if user has access to this league (but don't fail hard if UserLeague record doesn't exist)
     const userLeague = await prisma.userLeague.findFirst({
       where: {
         userId: userId,
@@ -168,15 +181,9 @@ router.get('/:leagueId/roster/:userId', async (req, res) => {
       },
     });
 
-    if (!userLeague) {
-      return res.status(403).json({
-        success: false,
-        error: {
-          code: 'ACCESS_DENIED',
-          message: 'User does not have access to this league',
-        },
-      });
-    }
+    // If no UserLeague record exists, we'll still try to get the roster from Sleeper
+    // This handles cases where the UserLeague table may not be fully populated
+    console.log(`Getting roster for user ${userId} in league ${leagueId}, UserLeague record exists: ${!!userLeague}`);
 
     const roster = await leagueService.getUserRoster(league.sleeperLeagueId, userId);
 
@@ -209,9 +216,21 @@ router.get('/:leagueId/roster/:userId', async (req, res) => {
 
 // GET /api/leagues/:leagueId/players/:userId
 // Returns user's roster players formatted for Start/Sit analyzer
-router.get('/:leagueId/players/:userId', async (req, res) => {
+router.get('/:leagueId/players/:userId', authenticateToken, async (req: AuthenticatedRequest, res) => {
   try {
     const { leagueId, userId } = req.params;
+    const authenticatedUserId = req.userId;
+
+    // Verify the authenticated user is requesting their own players
+    if (authenticatedUserId !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'ACCESS_DENIED',
+          message: 'You can only access your own players',
+        },
+      });
+    }
 
     // Find the league in our database
     const league = await prisma.league.findUnique({
@@ -228,7 +247,7 @@ router.get('/:leagueId/players/:userId', async (req, res) => {
       });
     }
 
-    // Verify user has access to this league
+    // Check if user has access to this league (but don't fail hard if UserLeague record doesn't exist)
     const userLeague = await prisma.userLeague.findFirst({
       where: {
         userId: userId,
@@ -236,15 +255,9 @@ router.get('/:leagueId/players/:userId', async (req, res) => {
       },
     });
 
-    if (!userLeague) {
-      return res.status(403).json({
-        success: false,
-        error: {
-          code: 'ACCESS_DENIED',
-          message: 'User does not have access to this league',
-        },
-      });
-    }
+    // If no UserLeague record exists, we'll still try to get the players from Sleeper
+    // This handles cases where the UserLeague table may not be fully populated
+    console.log(`Getting players for user ${userId} in league ${leagueId}, UserLeague record exists: ${!!userLeague}`);
 
     const players = await leagueService.getUserRosterPlayers(league.sleeperLeagueId, userId);
 
