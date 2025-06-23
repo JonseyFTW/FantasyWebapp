@@ -360,21 +360,26 @@ export default function LeagueDetailsPage() {
       }
 
       // Fetch user's roster
-      const rosterResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/leagues/${leagueId}/roster/${user.id}`);
-      if (rosterResponse.ok) {
-        const rosterData = await rosterResponse.json();
-        if (rosterData.success) {
-          setUserRoster(rosterData.data);
+      try {
+        const { apiClient } = await import('../../../lib/api-client');
+        const rosterResponse = await apiClient.get(`/api/leagues/${leagueId}/roster/${user.id}`);
+        if (rosterResponse.ok) {
+          const rosterData = await rosterResponse.json();
+          if (rosterData.success) {
+            setUserRoster(rosterData.data);
+          }
         }
-      }
 
-      // Fetch user's roster players for Start/Sit
-      const playersResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/leagues/${leagueId}/players/${user.id}`);
-      if (playersResponse.ok) {
-        const playersData = await playersResponse.json();
-        if (playersData.success) {
-          setUserRosterPlayers(playersData.data);
+        // Fetch user's roster players for Start/Sit
+        const playersResponse = await apiClient.get(`/api/leagues/${leagueId}/players/${user.id}`);
+        if (playersResponse.ok) {
+          const playersData = await playersResponse.json();
+          if (playersData.success) {
+            setUserRosterPlayers(playersData.data);
+          }
         }
+      } catch (error) {
+        console.error('Error fetching authenticated roster data:', error);
       }
 
     } catch (err) {

@@ -136,7 +136,8 @@ export default function DashboardPage() {
     
     try {
       setFetchingRoster(true);
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/leagues/${leagueId}/players/${user.id}`);
+      const { apiClient } = await import('../../../lib/api-client');
+      const response = await apiClient.get(`/api/leagues/${leagueId}/players/${user.id}`);
       
       if (response.ok) {
         const data = await response.json();
