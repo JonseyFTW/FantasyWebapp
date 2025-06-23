@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { sleeperAPIService as defaultSleeperAPI, SleeperAPIService } from './sleeper-api-service';
 
 const prisma = new PrismaClient();
 
@@ -40,9 +41,11 @@ export interface RosterData {
 
 export class LeagueService {
   private mcpServerUrl: string;
+  private sleeperAPI: SleeperAPIService;
 
-  constructor() {
+  constructor(sleeperAPIService?: SleeperAPIService) {
     this.mcpServerUrl = process.env.MCP_SERVER_URL || 'http://localhost:3001';
+    this.sleeperAPI = sleeperAPIService || defaultSleeperAPI;
   }
 
   private async callMCPTool(toolName: string, params: any): Promise<any> {
@@ -90,6 +93,25 @@ export class LeagueService {
 
   async getLeagueDetails(sleeperLeagueId: string): Promise<LeagueDetails> {
     try {
+      console.log(`Getting league details for: ${sleeperLeagueId}`);
+      
+      // Try direct Sleeper API first (Phase 1: Primary method)
+      try {
+        return await this.getLeagueDetailsDirectAPI(sleeperLeagueId);
+      } catch (directAPIError) {
+        console.warn('Direct Sleeper API failed, falling back to MCP:', directAPIError);
+        return await this.getLeagueDetailsMCP(sleeperLeagueId);
+      }
+    } catch (error) {
+      console.error('Error getting league details:', error);
+      throw new Error(`Failed to get league details: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  private async getLeagueDetailsMCP(sleeperLeagueId: string): Promise<LeagueDetails> {
+    try {
+      console.log('Using MCP for league details');
+      
       // Get league info
       const league = await this.callMCPTool('get_league', {
         league_id: sleeperLeagueId
@@ -114,36 +136,31 @@ export class LeagueService {
         users: users || [],
         currentWeek: (nflState as any)?.week || 14,
       };
-    } catch (mcpError) {
-      console.warn('MCP unavailable, falling back to direct Sleeper API calls:', mcpError);
-      return await this.getLeagueDetailsDirectAPI(sleeperLeagueId);
+    } catch (error) {
+      console.error('MCP league details failed:', error);
+      throw new Error(`MCP league details failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
   private async getLeagueDetailsDirectAPI(sleeperLeagueId: string): Promise<LeagueDetails> {
     try {
-      console.log('Using direct Sleeper API calls for league details');
+      console.log('Using direct Sleeper API service for league details');
       
-      // Direct API calls to Sleeper
-      const [leagueResponse, rostersResponse, usersResponse] = await Promise.all([
-        fetch(`https://api.sleeper.app/v1/league/${sleeperLeagueId}`),
-        fetch(`https://api.sleeper.app/v1/league/${sleeperLeagueId}/rosters`),
-        fetch(`https://api.sleeper.app/v1/league/${sleeperLeagueId}/users`)
-      ]);
-
-      const league = leagueResponse.ok ? await leagueResponse.json() : null;
-      const rosters = rostersResponse.ok ? await rostersResponse.json() : [];
-      const users = usersResponse.ok ? await usersResponse.json() : [];
+      // Use the new SleeperAPIService with batch operation for efficiency
+      const { league, rosters, users } = await this.sleeperAPI.getLeagueDetailsBatch(sleeperLeagueId);
+      
+      // Get current NFL week
+      const nflState = await this.sleeperAPI.getNFLState();
 
       return {
-        league: league || { name: 'Unknown League', season: 2024 },
+        league,
         rosters: rosters || [],
         users: users || [],
-        currentWeek: 14, // Default current week
+        currentWeek: nflState?.week || 14,
       };
     } catch (error) {
-      console.error('Direct API calls failed:', error);
-      throw new Error('Both MCP and direct API access failed');
+      console.error('Direct Sleeper API service failed:', error);
+      throw new Error(`Direct Sleeper API service failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -352,15 +369,26 @@ export class LeagueService {
 
   async getUserRosterPlayers(sleeperLeagueId: string, userId: string): Promise<any[]> {
     try {
+      console.log(`Getting roster players for user ${userId} in league ${sleeperLeagueId}`);
+      
       // Get user's roster
       const roster = await this.getUserRoster(sleeperLeagueId, userId);
       if (!roster || !roster.players.length) {
+        console.log('No roster or players found for user');
         return [];
       }
 
-      // Get all NFL players
-      const allPlayers = await this.getAllPlayers();
+      // Get all NFL players using direct API first
+      let allPlayers;
+      try {
+        allPlayers = await this.sleeperAPI.getAllPlayers();
+      } catch (directAPIError) {
+        console.warn('Direct API failed for players, trying MCP:', directAPIError);
+        allPlayers = await this.callMCPTool('get_players_nfl', {});
+      }
+
       if (!allPlayers || typeof allPlayers !== 'object') {
+        console.log('No players data available');
         return [];
       }
 
@@ -380,6 +408,7 @@ export class LeagueService {
         })
         .filter(player => player !== null);
 
+      console.log(`Found ${userPlayers.length} players for user roster`);
       return userPlayers;
     } catch (error) {
       console.error('Error getting user roster players:', error);
