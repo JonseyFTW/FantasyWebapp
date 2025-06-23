@@ -440,6 +440,7 @@ export default function DashboardPage() {
                 <TradeAnalyzer
                   leagueId={selectedLeague}
                   userId={user.id}
+                  week={currentWeek}
                   availableTeams={leagueTeams}
                 />
               )}

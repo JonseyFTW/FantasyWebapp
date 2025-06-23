@@ -11,6 +11,7 @@ import { aiClient, TradeRequest } from '@/lib/ai-client';
 interface TradeAnalyzerProps {
   leagueId: string;
   userId: string;
+  week: number;
   availableTeams: {
     userId: string;
     teamName: string;
@@ -23,7 +24,7 @@ interface TradeAnalyzerProps {
   }[];
 }
 
-export function TradeAnalyzer({ leagueId, userId, availableTeams }: TradeAnalyzerProps) {
+export function TradeAnalyzer({ leagueId, userId, week, availableTeams }: TradeAnalyzerProps) {
   const [team1, setTeam1] = useState<string>('');
   const [team2, setTeam2] = useState<string>('');
   const [team1Players, setTeam1Players] = useState<string[]>([]);
@@ -53,12 +54,18 @@ export function TradeAnalyzer({ leagueId, userId, availableTeams }: TradeAnalyze
     try {
       const request: TradeRequest = {
         leagueId,
-        team1UserId: team1,
-        team2UserId: team2,
-        team1Players,
-        team2Players,
-        requestingUserId: userId,
-        preferredProvider: provider,
+        week,
+        team1Players: {
+          give: team1Players,
+          receive: team2Players,
+        },
+        team2Players: {
+          give: team2Players,
+          receive: team1Players,
+        },
+        userPreferences: {
+          riskTolerance: 'moderate',
+        },
       };
 
       const result = await aiClient.analyzeTrade(request);

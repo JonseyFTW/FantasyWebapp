@@ -17,18 +17,20 @@ export interface StartSitRequest {
 
 export interface TradeRequest {
   leagueId: string;
-  team1UserId: string;
-  team2UserId: string;
-  team1Players: string[];
-  team2Players: string[];
-  requestingUserId: string;
-  tradeContext?: {
-    deadline?: string;
-    keepers?: boolean;
-    dynastyLeague?: boolean;
-    needAnalysis?: string;
+  week: number;
+  team1Players: {
+    give: string[];
+    receive: string[];
   };
-  preferredProvider?: 'openai' | 'claude' | 'gemini';
+  team2Players: {
+    give: string[];
+    receive: string[];
+  };
+  userPreferences?: {
+    riskTolerance?: 'conservative' | 'moderate' | 'aggressive';
+    favorLongTerm?: boolean;
+    prioritizePosition?: string;
+  };
 }
 
 export interface WaiverWireRequest {
