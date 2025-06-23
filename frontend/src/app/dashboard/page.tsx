@@ -136,7 +136,7 @@ export default function DashboardPage() {
     
     try {
       setFetchingRoster(true);
-      const { apiClient } = await import('../../../lib/api-client');
+      const { apiClient } = await import('../../lib/api-client');
       const response = await apiClient.get(`/api/leagues/${leagueId}/players/${user.id}`);
       
       if (response.ok) {
