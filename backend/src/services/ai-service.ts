@@ -275,67 +275,30 @@ export class AIService {
     }
   }
 
-  // MCP Fallback for AI Service
+  // MCP Fallback - Currently disabled as MCP server doesn't provide AI functionality
   private async callAIServiceMCP(request: AIRequest): Promise<AIResponse> {
-    try {
-      console.log('Calling AI service via MCP fallback');
-      
-      const response = await fetch(`${process.env.AI_SERVICE_URL || 'http://localhost:5000'}/ai/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          messages: request.messages,
-          maxTokens: request.maxTokens || 2000,
-          temperature: request.temperature || 0.1,
-          provider: request.provider || this.getDefaultProvider(),
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`AI Service call failed: ${response.status}`);
-      }
-
-      const data = await response.json() as {
-        success: boolean;
-        error?: { message: string };
-        data: {
-          content: string;
-          provider?: AIProvider;
-          usage?: {
-            promptTokens: number;
-            completionTokens: number;
-            totalTokens: number;
-          };
-        };
-      };
-      
-      if (!data.success) {
-        throw new Error(data.error?.message || 'AI Service request failed');
-      }
-
-      return {
-        content: data.data.content,
-        provider: data.data.provider || request.provider || this.getDefaultProvider(),
-        usage: data.data.usage,
-      };
-    } catch (error) {
-      console.error('MCP AI service call failed:', error);
-      throw error;
-    }
+    throw new Error('MCP AI fallback not available - Sleeper MCP server does not provide AI functionality');
   }
 
-  // Main AI Chat Method with Direct + MCP Fallback
+  // Main AI Chat Method - Direct providers only
   async chat(request: AIRequest): Promise<AIResponse> {
     try {
-      // Try direct AI provider first (Phase 2: Primary method)
-      try {
-        return await this.callAIProviderDirect(request);
-      } catch (directError) {
-        console.warn('Direct AI provider failed, falling back to MCP:', directError);
-        return await this.callAIServiceMCP(request);
+      // Try each available AI provider until one succeeds
+      const providers = [AIProvider.CLAUDE, AIProvider.OPENAI, AIProvider.GEMINI];
+      let lastError: Error | null = null;
+
+      for (const provider of providers) {
+        try {
+          const providerRequest = { ...request, provider };
+          return await this.callAIProviderDirect(providerRequest);
+        } catch (error) {
+          console.warn(`${provider} AI provider failed:`, error);
+          lastError = error instanceof Error ? error : new Error(String(error));
+          continue;
+        }
       }
+
+      throw lastError || new Error('All AI providers failed');
     } catch (error) {
       console.error('All AI methods failed:', error);
       throw new Error(`AI request failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
