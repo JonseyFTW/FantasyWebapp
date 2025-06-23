@@ -47,6 +47,8 @@ export class LeagueService {
 
   private async callMCPTool(toolName: string, params: any): Promise<any> {
     try {
+      console.log(`Calling MCP tool: ${toolName} with params:`, params);
+      
       const response = await fetch(`${this.mcpServerUrl}/rpc`, {
         method: 'POST',
         headers: {
@@ -61,18 +63,27 @@ export class LeagueService {
       });
 
       if (!response.ok) {
+        console.error(`MCP call failed: ${response.status} - ${response.statusText}`);
         throw new Error(`MCP call failed: ${response.status}`);
       }
 
       const result = await response.json() as any;
       
       if (result.error) {
+        console.error(`MCP error:`, result.error);
         throw new Error(`MCP error: ${result.error.message}`);
       }
 
+      console.log(`MCP tool ${toolName} successful`);
       return result.result;
     } catch (error) {
       console.error(`MCP tool call failed for ${toolName}:`, error);
+      
+      // Check if it's a connection error
+      if (error instanceof Error && (error.message.includes('ECONNREFUSED') || error.message.includes('fetch failed'))) {
+        throw new Error(`MCP Server unavailable. Please ensure the Sleeper MCP server is running on ${this.mcpServerUrl}`);
+      }
+      
       throw new Error(`Failed to call ${toolName}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -101,21 +112,94 @@ export class LeagueService {
         league,
         rosters: rosters || [],
         users: users || [],
-        currentWeek: nflState?.week || 14,
+        currentWeek: (nflState as any)?.week || 14,
+      };
+    } catch (mcpError) {
+      console.warn('MCP unavailable, falling back to direct Sleeper API calls:', mcpError);
+      return await this.getLeagueDetailsDirectAPI(sleeperLeagueId);
+    }
+  }
+
+  private async getLeagueDetailsDirectAPI(sleeperLeagueId: string): Promise<LeagueDetails> {
+    try {
+      console.log('Using direct Sleeper API calls for league details');
+      
+      // Direct API calls to Sleeper
+      const [leagueResponse, rostersResponse, usersResponse] = await Promise.all([
+        fetch(`https://api.sleeper.app/v1/league/${sleeperLeagueId}`),
+        fetch(`https://api.sleeper.app/v1/league/${sleeperLeagueId}/rosters`),
+        fetch(`https://api.sleeper.app/v1/league/${sleeperLeagueId}/users`)
+      ]);
+
+      const league = leagueResponse.ok ? await leagueResponse.json() : null;
+      const rosters = rostersResponse.ok ? await rostersResponse.json() : [];
+      const users = usersResponse.ok ? await usersResponse.json() : [];
+
+      return {
+        league: league || { name: 'Unknown League', season: 2024 },
+        rosters: rosters || [],
+        users: users || [],
+        currentWeek: 14, // Default current week
       };
     } catch (error) {
-      console.error('Error getting league details:', error);
-      throw new Error(`Failed to get league details: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('Direct API calls failed:', error);
+      throw new Error('Both MCP and direct API access failed');
     }
   }
 
   async getLeagueMatchups(sleeperLeagueId: string, week: number): Promise<MatchupData[]> {
     try {
-      const matchups = await this.callMCPTool('get_league_matchups', {
-        league_id: sleeperLeagueId,
-        week: week
-      });
+      try {
+        const matchups = await this.callMCPTool('get_league_matchups', {
+          league_id: sleeperLeagueId,
+          week: week
+        });
 
+        if (!matchups || !Array.isArray(matchups)) {
+          return [];
+        }
+
+        // Group matchups by matchup_id
+        const matchupGroups: { [key: string]: any[] } = {};
+        
+        matchups.forEach((matchup: any) => {
+          const matchupId = matchup.matchup_id;
+          if (!matchupGroups[matchupId]) {
+            matchupGroups[matchupId] = [];
+          }
+          matchupGroups[matchupId].push(matchup);
+        });
+
+        // Convert to MatchupData format
+        return Object.entries(matchupGroups).map(([matchupId, teams]) => ({
+          week,
+          matchupId: parseInt(matchupId),
+          teams: teams.map(team => ({
+            rosterId: team.roster_id,
+            points: team.points || 0,
+            projectedPoints: team.projected_points
+          }))
+        }));
+      } catch (mcpError) {
+        console.warn('MCP unavailable for matchups, using direct API');
+        return await this.getLeagueMatchupsDirectAPI(sleeperLeagueId, week);
+      }
+    } catch (error) {
+      console.error('Error getting league matchups:', error);
+      throw new Error(`Failed to get league matchups: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  private async getLeagueMatchupsDirectAPI(sleeperLeagueId: string, week: number): Promise<MatchupData[]> {
+    try {
+      const response = await fetch(`https://api.sleeper.app/v1/league/${sleeperLeagueId}/matchups/${week}`);
+      
+      if (!response.ok) {
+        return [];
+      }
+
+      const matchups = await response.json();
+      
       if (!matchups || !Array.isArray(matchups)) {
         return [];
       }
@@ -142,8 +226,8 @@ export class LeagueService {
         }))
       }));
     } catch (error) {
-      console.error('Error getting league matchups:', error);
-      throw new Error(`Failed to get league matchups: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('Direct matchups API failed:', error);
+      return [];
     }
   }
 

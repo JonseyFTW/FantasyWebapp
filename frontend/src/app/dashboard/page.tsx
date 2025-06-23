@@ -85,6 +85,8 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedLeague, setSelectedLeague] = useState<string>('');
   const [currentWeek, setCurrentWeek] = useState(14);
+  const [selectedLeagueRosterPlayers, setSelectedLeagueRosterPlayers] = useState<any[]>([]);
+  const [fetchingRoster, setFetchingRoster] = useState(false);
 
   const fetchUserLeagues = async () => {
     if (!user?.email) return;
@@ -129,6 +131,33 @@ export default function DashboardPage() {
     }
   };
 
+  const fetchRosterPlayers = async (leagueId: string) => {
+    if (!user?.id || !leagueId) return;
+    
+    try {
+      setFetchingRoster(true);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/leagues/${leagueId}/players/${user.id}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setSelectedLeagueRosterPlayers(data.data || []);
+        } else {
+          console.error('Failed to fetch roster players:', data.error);
+          setSelectedLeagueRosterPlayers([]);
+        }
+      } else {
+        console.error('Failed to fetch roster players:', response.status);
+        setSelectedLeagueRosterPlayers([]);
+      }
+    } catch (err) {
+      console.error('Error fetching roster players:', err);
+      setSelectedLeagueRosterPlayers([]);
+    } finally {
+      setFetchingRoster(false);
+    }
+  };
+
   useEffect(() => {
     requireAuth();
   }, [requireAuth]);
@@ -138,6 +167,12 @@ export default function DashboardPage() {
       fetchUserLeagues();
     }
   }, [user]);
+
+  useEffect(() => {
+    if (selectedLeague && user) {
+      fetchRosterPlayers(selectedLeague);
+    }
+  }, [selectedLeague, user]);
 
   if (!user) {
     return (
@@ -219,13 +254,28 @@ export default function DashboardPage() {
       {/* League Overview */}
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
         {userData.leagues.map((userLeague) => (
-          <Card key={userLeague.league.id} className="card-hover">
+          <Card 
+            key={userLeague.league.id} 
+            className={`card-hover cursor-pointer transition-all duration-200 ${
+              userLeague.league.id === selectedLeague 
+                ? 'ring-2 ring-blue-500 bg-blue-50' 
+                : 'hover:shadow-md'
+            }`}
+            onClick={() => setSelectedLeague(userLeague.league.id)}
+          >
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">{userLeague.league.name}</CardTitle>
-                <Badge variant={userLeague.league.id === selectedLeague ? 'default' : 'outline'}>
-                  {userLeague.league.season}
-                </Badge>
+                <div className="flex items-center space-x-2">
+                  <Badge variant={userLeague.league.id === selectedLeague ? 'default' : 'outline'}>
+                    {userLeague.league.season}
+                  </Badge>
+                  {userLeague.league.id === selectedLeague && (
+                    <Badge variant="secondary" className="text-xs">
+                      Selected
+                    </Badge>
+                  )}
+                </div>
               </div>
               <CardDescription>
                 {userLeague.league.totalRosters} teams • {userLeague.league.status}
@@ -242,21 +292,11 @@ export default function DashboardPage() {
                   <div className="text-gray-600">Season</div>
                 </div>
               </div>
-              <div className="flex space-x-2">
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => setSelectedLeague(userLeague.league.id)}
-                  className={userLeague.league.id === selectedLeague ? 'bg-blue-50 border-blue-300' : ''}
-                >
-                  Select for AI Tools
+              <Link href={`/league/${userLeague.league.id}`} onClick={(e) => e.stopPropagation()}>
+                <Button size="sm" className="w-full">
+                  View Details
                 </Button>
-                <Link href={`/league/${userLeague.league.id}`}>
-                  <Button size="sm" className="flex-1">
-                    View Details
-                  </Button>
-                </Link>
-              </div>
+              </Link>
             </CardContent>
           </Card>
         ))}
@@ -288,13 +328,36 @@ export default function DashboardPage() {
             </TabsList>
 
             <TabsContent value="start-sit" className="mt-6">
-              <StartSitAnalyzer
-                userId={user.id}
-                leagueId={selectedLeague}
-                week={currentWeek}
-                availablePlayers={mockPlayerData.availablePlayers}
-                rosterSlots={mockPlayerData.rosterSlots}
-              />
+              {fetchingRoster ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                  <span>Loading your roster...</span>
+                </div>
+              ) : selectedLeagueRosterPlayers.length > 0 ? (
+                <StartSitAnalyzer
+                  userId={user.id}
+                  leagueId={selectedLeague}
+                  week={currentWeek}
+                  availablePlayers={selectedLeagueRosterPlayers}
+                  rosterSlots={mockPlayerData.rosterSlots}
+                />
+              ) : selectedLeague ? (
+                <div className="text-center py-8">
+                  <Users className="h-8 w-8 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No roster found</h3>
+                  <p className="text-gray-600">
+                    We couldn't load your roster for this league. Make sure you have players in your league roster.
+                  </p>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Brain className="h-8 w-8 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Select a league</h3>
+                  <p className="text-gray-600">
+                    Click on a league above to use the Start/Sit analyzer with your roster players.
+                  </p>
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="trade-analyzer" className="mt-6">
