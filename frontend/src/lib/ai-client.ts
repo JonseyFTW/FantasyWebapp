@@ -97,7 +97,7 @@ export class AIClient {
 
   constructor(baseURL: string = process.env.NEXT_PUBLIC_AI_SERVICE_URL || 'http://localhost:5000') {
     this.client = axios.create({
-      baseURL: `${baseURL}/ai`,
+      baseURL: `${baseURL}/api/ai`,
       timeout: 60000, // 60 seconds for AI operations
       headers: {
         'Content-Type': 'application/json',
