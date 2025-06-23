@@ -101,9 +101,15 @@ export interface TradeAnalysisRequest {
 
 export interface TradeAnalysisResult {
   overallGrade: 'A+' | 'A' | 'B+' | 'B' | 'C+' | 'C' | 'D+' | 'D' | 'F';
-  fairnessScore: number; // 0-1, 0.5 being perfectly fair
+  fairnessScore: number; // 0-10, 5 being perfectly fair (for frontend compatibility)
   recommendation: 'accept' | 'reject' | 'negotiate';
   reasoning: string;
+  marketValue: {
+    team1Total: number;
+    team2Total: number;
+    difference: number;
+    valueVerdict: 'fair' | 'team1_wins' | 'team2_wins';
+  };
   impactAnalysis: {
     team1Impact: {
       positionalImpact: { [position: string]: number }; // -1 to 1
@@ -815,9 +821,15 @@ OUTPUT REQUIREMENTS:
 You must respond with a valid JSON object containing:
 {
   "overallGrade": "A+|A|B+|B|C+|C|D+|D|F",
-  "fairnessScore": 0.0-1.0,
+  "fairnessScore": 0-10,
   "recommendation": "accept|reject|negotiate",
   "reasoning": "detailed explanation",
+  "marketValue": {
+    "team1Total": number,
+    "team2Total": number,
+    "difference": number,
+    "valueVerdict": "fair|team1_wins|team2_wins"
+  },
   "impactAnalysis": {
     "team1Impact": {
       "positionalImpact": {"QB": number, "RB": number, "WR": number, "TE": number},
@@ -914,9 +926,16 @@ Focus on providing actionable insights for making the trade decision.`;
       
       return {
         overallGrade: parsed.overallGrade || 'C',
-        fairnessScore: Math.max(0, Math.min(1, parsed.fairnessScore || 0.5)),
+        fairnessScore: Math.max(0, Math.min(10, parsed.fairnessScore || 5)),
         recommendation: ['accept', 'reject', 'negotiate'].includes(parsed.recommendation) ? parsed.recommendation : 'negotiate',
         reasoning: parsed.reasoning || 'Analysis incomplete',
+        marketValue: {
+          team1Total: parsed.marketValue?.team1Total || 0,
+          team2Total: parsed.marketValue?.team2Total || 0,
+          difference: parsed.marketValue?.difference || 0,
+          valueVerdict: ['fair', 'team1_wins', 'team2_wins'].includes(parsed.marketValue?.valueVerdict) 
+            ? parsed.marketValue.valueVerdict : 'fair',
+        },
         impactAnalysis: {
           team1Impact: {
             positionalImpact: parsed.impactAnalysis?.team1Impact?.positionalImpact || {},
@@ -940,9 +959,15 @@ Focus on providing actionable insights for making the trade decision.`;
       
       return {
         overallGrade: 'C',
-        fairnessScore: 0.5,
+        fairnessScore: 5,
         recommendation: 'negotiate',
         reasoning: 'Analysis failed - manual review required',
+        marketValue: {
+          team1Total: 0,
+          team2Total: 0,
+          difference: 0,
+          valueVerdict: 'fair',
+        },
         impactAnalysis: {
           team1Impact: { positionalImpact: {}, weeklyProjection: 0, seasonProjection: 0 },
           team2Impact: { positionalImpact: {}, weeklyProjection: 0, seasonProjection: 0 },
