@@ -119,26 +119,55 @@ router.post('/sync', async (req, res) => {
 
     // Store leagues in database
     for (const league of leagues) {
-      await prisma.league.upsert({
-        where: { 
-          sleeperLeagueId: league.league_id 
-        },
-        update: {
-          name: league.name,
-          season: parseInt(league.season) || 2024,
-          totalRosters: league.total_rosters,
-          status: league.status,
-          settings: league.settings || {},
-        },
-        create: {
-          sleeperLeagueId: league.league_id,
-          name: league.name,
-          season: parseInt(league.season) || 2024,
-          totalRosters: league.total_rosters,
-          status: league.status,
-          settings: league.settings || {},
-        },
-      });
+      try {
+        await prisma.league.upsert({
+          where: { 
+            sleeperLeagueId: league.league_id 
+          },
+          update: {
+            name: league.name,
+            season: parseInt(league.season) || 2024,
+            totalRosters: league.total_rosters,
+            status: league.status || 'active',
+            settings: league.settings || {},
+          },
+          create: {
+            sleeperLeagueId: league.league_id,
+            name: league.name,
+            season: parseInt(league.season) || 2024,
+            totalRosters: league.total_rosters,
+            status: league.status || 'active',
+            settings: league.settings || {},
+          },
+        });
+      } catch (leagueError) {
+        console.error(`Error upserting league ${league.league_id}:`, leagueError);
+        // Try without status field as fallback for database schema issues
+        try {
+          await prisma.league.upsert({
+            where: { 
+              sleeperLeagueId: league.league_id 
+            },
+            update: {
+              name: league.name,
+              season: parseInt(league.season) || 2024,
+              totalRosters: league.total_rosters,
+              settings: league.settings || {},
+            },
+            create: {
+              sleeperLeagueId: league.league_id,
+              name: league.name,
+              season: parseInt(league.season) || 2024,
+              totalRosters: league.total_rosters,
+              settings: league.settings || {},
+            },
+          });
+          console.log(`League ${league.league_id} saved without status field (fallback)`);
+        } catch (fallbackError) {
+          console.error(`Failed to save league ${league.league_id} even with fallback:`, fallbackError);
+          continue; // Skip this league and continue with others
+        }
+      }
 
       // Find the created league by sleeperLeagueId
       const createdLeague = await prisma.league.findUnique({
@@ -147,24 +176,29 @@ router.post('/sync', async (req, res) => {
 
       if (createdLeague) {
         // Create user-league relationship
-        await prisma.userLeague.upsert({
-          where: {
-            userId_leagueId: {
+        try {
+          await prisma.userLeague.upsert({
+            where: {
+              userId_leagueId: {
+                userId: user.id,
+                leagueId: createdLeague.id,
+              },
+            },
+            update: {
+              role: 'member',
+              sleeperRosterId: league.roster_id || '',
+            },
+            create: {
               userId: user.id,
               leagueId: createdLeague.id,
+              role: 'member',
+              sleeperRosterId: league.roster_id || '',
             },
-          },
-          update: {
-            role: 'member',
-            sleeperRosterId: league.roster_id || '',
-          },
-          create: {
-            userId: user.id,
-            leagueId: createdLeague.id,
-            role: 'member',
-            sleeperRosterId: league.roster_id || '',
-          },
-        });
+          });
+        } catch (userLeagueError) {
+          console.error(`Error creating user-league relationship for league ${league.league_id}:`, userLeagueError);
+          // Continue with other leagues even if this relationship fails
+        }
       }
     }
 
