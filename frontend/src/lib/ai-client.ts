@@ -1,4 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
+import { getSession } from 'next-auth/react';
 
 export interface StartSitRequest {
   userId: string;
@@ -94,8 +95,11 @@ export interface ApiResponse<T = any> {
 
 export class AIClient {
   private client: AxiosInstance;
+  private tokenCache: { token: string; expires: number; userId: string } | null = null;
+  private baseUrl: string;
 
-  constructor(baseURL: string = process.env.NEXT_PUBLIC_AI_SERVICE_URL || 'http://localhost:5000') {
+  constructor(baseURL: string = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000') {
+    this.baseUrl = baseURL;
     this.client = axios.create({
       baseURL: `${baseURL}/api/ai`,
       timeout: 60000, // 60 seconds for AI operations
@@ -104,29 +108,95 @@ export class AIClient {
       },
     });
 
-    // Request interceptor
+    // Request interceptor for authentication
     this.client.interceptors.request.use(
-      (config) => {
+      async (config) => {
         console.log(`AI Request: ${config.method?.toUpperCase()} ${config.url}`);
+        try {
+          const token = await this.getBackendJWT();
+          config.headers.Authorization = `Bearer ${token}`;
+        } catch (error) {
+          console.error('Failed to get authentication token:', error);
+          throw error;
+        }
         return config;
       },
       (error) => Promise.reject(error)
     );
 
-    // Response interceptor
+    // Response interceptor with authentication retry
     this.client.interceptors.response.use(
       (response) => {
         console.log(`AI Response: ${response.status} - ${response.data?.metadata?.processingTime}ms`);
         return response;
       },
-      (error) => {
+      async (error) => {
         console.error('AI Request failed:', error.message);
+        
+        // If we get a 401, clear the token cache and retry once
+        if (error.response?.status === 401 && this.tokenCache) {
+          console.log('Got 401, clearing token cache and retrying...');
+          this.tokenCache = null;
+          
+          try {
+            const token = await this.getBackendJWT();
+            error.config.headers.Authorization = `Bearer ${token}`;
+            return this.client.request(error.config);
+          } catch (authError) {
+            console.error('Authentication retry failed:', authError);
+            return Promise.reject(new Error('Authentication failed'));
+          }
+        }
+        
         if (error.response?.data) {
           return Promise.reject(new Error(error.response.data.error?.message || 'AI service error'));
         }
         return Promise.reject(error);
       }
     );
+  }
+
+  private async getBackendJWT(): Promise<string> {
+    // Check if we have a valid cached token
+    if (this.tokenCache && this.tokenCache.expires > Date.now()) {
+      return this.tokenCache.token;
+    }
+
+    // Get NextAuth session
+    const session = await getSession();
+    if (!session?.user?.email) {
+      throw new Error('No valid session found');
+    }
+
+    // Exchange NextAuth session for backend JWT
+    const response = await fetch(`${this.baseUrl}/api/auth/token-exchange`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        userEmail: session.user.email,
+        userId: (session.user as any).id,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to get backend JWT: ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (!data.success || !data.data?.token) {
+      throw new Error('Invalid token response from backend');
+    }
+
+    // Cache the token (assuming 1 hour expiry for safety)
+    this.tokenCache = {
+      token: data.data.token,
+      userId: data.data.user.id,
+      expires: Date.now() + (60 * 60 * 1000), // 1 hour
+    };
+
+    return data.data.token;
   }
 
   async analyzeStartSit(request: StartSitRequest): Promise<any> {
