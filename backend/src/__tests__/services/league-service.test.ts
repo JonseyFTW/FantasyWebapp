@@ -35,7 +35,7 @@ describe('LeagueService', () => {
     } as any;
 
     // Create service with mocked dependencies
-    leagueService = new LeagueService(mockSleeperAPI);
+    leagueService = new LeagueService(mockSleeperAPI, mockPrisma);
     
     // Clear all mocks
     jest.clearAllMocks();

@@ -42,10 +42,12 @@ export interface RosterData {
 export class LeagueService {
   private mcpServerUrl: string;
   private sleeperAPI: SleeperAPIService;
+  private prisma: PrismaClient;
 
-  constructor(sleeperAPIService?: SleeperAPIService) {
+  constructor(sleeperAPIService?: SleeperAPIService, prismaClient?: PrismaClient) {
     this.mcpServerUrl = process.env.MCP_SERVER_URL || 'http://localhost:3001';
     this.sleeperAPI = sleeperAPIService || defaultSleeperAPI;
+    this.prisma = prismaClient || prisma;
   }
 
   private async callMCPTool(toolName: string, params: any): Promise<any> {
@@ -250,15 +252,22 @@ export class LeagueService {
 
   async getLeagueStandings(sleeperLeagueId: string): Promise<StandingsData[]> {
     try {
-      // Get rosters with win/loss records
-      const rosters = await this.callMCPTool('get_league_rosters', {
-        league_id: sleeperLeagueId
-      });
-
-      // Get users for team names
-      const users = await this.callMCPTool('get_league_users', {
-        league_id: sleeperLeagueId
-      });
+      // Try direct API first, fallback to MCP
+      let rosters, users;
+      try {
+        const leagueData = await this.sleeperAPI.getLeagueDetailsBatch(sleeperLeagueId);
+        rosters = leagueData.rosters;
+        users = leagueData.users;
+      } catch (directAPIError) {
+        console.warn('Direct API failed for standings, using MCP fallback:', directAPIError);
+        // Fallback to MCP
+        rosters = await this.callMCPTool('get_league_rosters', {
+          league_id: sleeperLeagueId
+        });
+        users = await this.callMCPTool('get_league_users', {
+          league_id: sleeperLeagueId
+        });
+      }
 
       if (!rosters || !Array.isArray(rosters)) {
         return [];
@@ -276,7 +285,7 @@ export class LeagueService {
       const standings: StandingsData[] = rosters.map((roster: any) => {
         const owner = userLookup[roster.owner_id];
         return {
-          rosterId: roster.roster_id,
+          rosterId: roster.roster_id.toString(),
           teamName: owner?.metadata?.team_name || owner?.display_name || `Team ${roster.roster_id}`,
           ownerName: owner?.display_name || 'Unknown Owner',
           wins: roster.settings?.wins || 0,
@@ -310,7 +319,7 @@ export class LeagueService {
   async getUserRoster(sleeperLeagueId: string, userId: string): Promise<RosterData | null> {
     try {
       // First, find the user's roster ID from the database
-      const userLeague = await prisma.userLeague.findFirst({
+      const userLeague = await this.prisma.userLeague.findFirst({
         where: {
           userId: userId,
           league: {
@@ -326,10 +335,17 @@ export class LeagueService {
         throw new Error('User not found in this league');
       }
 
-      // Get all rosters
-      const rosters = await this.callMCPTool('get_league_rosters', {
-        league_id: sleeperLeagueId
-      });
+      // Get all rosters using direct API first, fallback to MCP
+      let rosters;
+      try {
+        const leagueData = await this.sleeperAPI.getLeagueDetailsBatch(sleeperLeagueId);
+        rosters = leagueData.rosters;
+      } catch (directAPIError) {
+        console.warn('Direct API failed for user roster, using MCP fallback:', directAPIError);
+        rosters = await this.callMCPTool('get_league_rosters', {
+          league_id: sleeperLeagueId
+        });
+      }
 
       if (!rosters || !Array.isArray(rosters)) {
         return null;
