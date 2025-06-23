@@ -151,13 +151,45 @@ export default function DashboardPage() {
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.data) {
+          // Get all unique player IDs from all rosters
+          const allPlayerIds = new Set<string>();
+          data.data.rosters.forEach((roster: any) => {
+            if (roster.players) {
+              roster.players.forEach((playerId: string) => allPlayerIds.add(playerId));
+            }
+          });
+
+          // Fetch all player data from Sleeper API
+          let playersData: any = {};
+          try {
+            const playersResponse = await fetch('https://api.sleeper.app/v1/players/nfl');
+            if (playersResponse.ok) {
+              playersData = await playersResponse.json();
+            }
+          } catch (err) {
+            console.error('Failed to fetch players data:', err);
+          }
+
           // Transform the roster data into team format for trade analyzer
           const teams = data.data.rosters.map((roster: any, index: number) => {
             const user = data.data.users.find((u: any) => u.user_id === roster.owner_id);
+            
+            // Convert player IDs to player objects with names
+            const players = (roster.players || []).map((playerId: string) => {
+              const playerData = playersData[playerId];
+              return {
+                id: playerId,
+                name: playerData ? `${playerData.first_name || ''} ${playerData.last_name || ''}`.trim() : `Player ${playerId}`,
+                position: playerData?.position || 'Unknown',
+                team: playerData?.team || 'Unknown',
+                isStarter: roster.starters?.includes(playerId) || false
+              };
+            });
+
             return {
               userId: roster.owner_id,
               teamName: user?.display_name || `Team ${index + 1}`,
-              players: roster.players || [],
+              players: players,
               rosterId: roster.roster_id,
             };
           });
