@@ -99,42 +99,63 @@ export interface TradeAnalysisRequest {
   };
 }
 
-export interface TradeAnalysisResult {
-  overallGrade: 'A+' | 'A' | 'B+' | 'B' | 'C+' | 'C' | 'D+' | 'D' | 'F';
-  fairnessScore: number; // 0-10, 5 being perfectly fair (for frontend compatibility)
-  recommendation: 'accept' | 'reject' | 'negotiate';
+export interface TradeImpact {
+  positionalChange: {
+    [position: string]: {
+      before: number; // strength rating 1-10
+      after: number;
+      change: number; // positive = improvement
+    };
+  };
+  startingLineupImpact: number; // -5 to +5 scale
+  depthChartImpact: number; // -5 to +5 scale
+  byeWeekHelp: boolean;
+  playoffImplications: string;
+}
+
+export interface TradeRecommendation {
+  decision: 'accept' | 'reject' | 'counter' | 'consider';
+  confidence: number; // 0-1
   reasoning: string;
+  pros: string[];
+  cons: string[];
+  counterOfferSuggestion?: {
+    description: string;
+    adjustments: string[];
+  };
+}
+
+export interface TradeAnalysisResult {
+  fairnessScore: number; // 0-10 scale (5 = perfectly fair)
+  team1Analysis: {
+    grade: 'A+' | 'A' | 'A-' | 'B+' | 'B' | 'B-' | 'C+' | 'C' | 'C-' | 'D+' | 'D' | 'F';
+    impact: TradeImpact;
+    recommendation: TradeRecommendation;
+  };
+  team2Analysis: {
+    grade: 'A+' | 'A' | 'A-' | 'B+' | 'B' | 'B-' | 'C+' | 'C' | 'C-' | 'D+' | 'D' | 'F';
+    impact: TradeImpact;
+    recommendation: TradeRecommendation;
+  };
   marketValue: {
     team1Total: number;
     team2Total: number;
     difference: number;
     valueVerdict: 'fair' | 'team1_wins' | 'team2_wins';
   };
-  impactAnalysis: {
-    team1Impact: {
-      positionalImpact: { [position: string]: number }; // -1 to 1
-      weeklyProjection: number;
-      seasonProjection: number;
-    };
-    team2Impact: {
-      positionalImpact: { [position: string]: number };
-      weeklyProjection: number;
-      seasonProjection: number;
-    };
+  riskAssessment: {
+    team1Risk: 'low' | 'medium' | 'high';
+    team2Risk: 'low' | 'medium' | 'high';
+    riskFactors: string[];
   };
-  playerAnalysis: {
-    [playerId: string]: {
-      playerName: string;
-      position: string;
-      currentValue: number;
-      futureValue: number;
-      risk: 'low' | 'medium' | 'high';
-      notes: string;
-    };
+  timing: {
+    optimalTiming: boolean;
+    seasonContext: string;
+    urgency: 'low' | 'medium' | 'high';
   };
-  alternativeOptions: string[];
-  riskFactors: string[];
+  summary: string;
   keyInsights: string[];
+  similarTrades?: string[];
   lastUpdated: Date;
 }
 
@@ -820,40 +841,68 @@ ANALYSIS FRAMEWORK:
 OUTPUT REQUIREMENTS:
 You must respond with a valid JSON object containing:
 {
-  "overallGrade": "A+|A|B+|B|C+|C|D+|D|F",
   "fairnessScore": 0-10,
-  "recommendation": "accept|reject|negotiate",
-  "reasoning": "detailed explanation",
+  "team1Analysis": {
+    "grade": "A+|A|A-|B+|B|B-|C+|C|C-|D+|D|F",
+    "impact": {
+      "positionalChange": {
+        "QB": {"before": number, "after": number, "change": number},
+        "RB": {"before": number, "after": number, "change": number},
+        "WR": {"before": number, "after": number, "change": number},
+        "TE": {"before": number, "after": number, "change": number}
+      },
+      "startingLineupImpact": number,
+      "depthChartImpact": number,
+      "byeWeekHelp": boolean,
+      "playoffImplications": "string"
+    },
+    "recommendation": {
+      "decision": "accept|reject|counter|consider",
+      "confidence": 0.0-1.0,
+      "reasoning": "string",
+      "pros": ["array", "of", "pros"],
+      "cons": ["array", "of", "cons"]
+    }
+  },
+  "team2Analysis": {
+    "grade": "A+|A|A-|B+|B|B-|C+|C|C-|D+|D|F",
+    "impact": {
+      "positionalChange": {
+        "QB": {"before": number, "after": number, "change": number},
+        "RB": {"before": number, "after": number, "change": number},
+        "WR": {"before": number, "after": number, "change": number},
+        "TE": {"before": number, "after": number, "change": number}
+      },
+      "startingLineupImpact": number,
+      "depthChartImpact": number,
+      "byeWeekHelp": boolean,
+      "playoffImplications": "string"
+    },
+    "recommendation": {
+      "decision": "accept|reject|counter|consider",
+      "confidence": 0.0-1.0,
+      "reasoning": "string",
+      "pros": ["array", "of", "pros"],
+      "cons": ["array", "of", "cons"]
+    }
+  },
   "marketValue": {
     "team1Total": number,
     "team2Total": number,
     "difference": number,
     "valueVerdict": "fair|team1_wins|team2_wins"
   },
-  "impactAnalysis": {
-    "team1Impact": {
-      "positionalImpact": {"QB": number, "RB": number, "WR": number, "TE": number},
-      "weeklyProjection": number,
-      "seasonProjection": number
-    },
-    "team2Impact": {
-      "positionalImpact": {"QB": number, "RB": number, "WR": number, "TE": number},
-      "weeklyProjection": number,
-      "seasonProjection": number
-    }
+  "riskAssessment": {
+    "team1Risk": "low|medium|high",
+    "team2Risk": "low|medium|high",
+    "riskFactors": ["array", "of", "risk", "factors"]
   },
-  "playerAnalysis": {
-    "playerId": {
-      "playerName": "string",
-      "position": "string",
-      "currentValue": number,
-      "futureValue": number,
-      "risk": "low|medium|high",
-      "notes": "string"
-    }
+  "timing": {
+    "optimalTiming": boolean,
+    "seasonContext": "string",
+    "urgency": "low|medium|high"
   },
-  "alternativeOptions": ["array", "of", "suggestions"],
-  "riskFactors": ["array", "of", "risks"],
+  "summary": "string",
   "keyInsights": ["array", "of", "insights"]
 }`;
   }
@@ -925,10 +974,43 @@ Focus on providing actionable insights for making the trade decision.`;
       const parsed = JSON.parse(jsonMatch[0]);
       
       return {
-        overallGrade: parsed.overallGrade || 'C',
         fairnessScore: Math.max(0, Math.min(10, parsed.fairnessScore || 5)),
-        recommendation: ['accept', 'reject', 'negotiate'].includes(parsed.recommendation) ? parsed.recommendation : 'negotiate',
-        reasoning: parsed.reasoning || 'Analysis incomplete',
+        team1Analysis: {
+          grade: parsed.team1Analysis?.grade || 'C',
+          impact: {
+            positionalChange: parsed.team1Analysis?.impact?.positionalChange || {},
+            startingLineupImpact: parsed.team1Analysis?.impact?.startingLineupImpact || 0,
+            depthChartImpact: parsed.team1Analysis?.impact?.depthChartImpact || 0,
+            byeWeekHelp: parsed.team1Analysis?.impact?.byeWeekHelp || false,
+            playoffImplications: parsed.team1Analysis?.impact?.playoffImplications || 'Minimal impact',
+          },
+          recommendation: {
+            decision: ['accept', 'reject', 'counter', 'consider'].includes(parsed.team1Analysis?.recommendation?.decision) 
+              ? parsed.team1Analysis.recommendation.decision : 'consider',
+            confidence: Math.max(0, Math.min(1, parsed.team1Analysis?.recommendation?.confidence || 0.5)),
+            reasoning: parsed.team1Analysis?.recommendation?.reasoning || 'Analysis incomplete',
+            pros: Array.isArray(parsed.team1Analysis?.recommendation?.pros) ? parsed.team1Analysis.recommendation.pros : [],
+            cons: Array.isArray(parsed.team1Analysis?.recommendation?.cons) ? parsed.team1Analysis.recommendation.cons : [],
+          },
+        },
+        team2Analysis: {
+          grade: parsed.team2Analysis?.grade || 'C',
+          impact: {
+            positionalChange: parsed.team2Analysis?.impact?.positionalChange || {},
+            startingLineupImpact: parsed.team2Analysis?.impact?.startingLineupImpact || 0,
+            depthChartImpact: parsed.team2Analysis?.impact?.depthChartImpact || 0,
+            byeWeekHelp: parsed.team2Analysis?.impact?.byeWeekHelp || false,
+            playoffImplications: parsed.team2Analysis?.impact?.playoffImplications || 'Minimal impact',
+          },
+          recommendation: {
+            decision: ['accept', 'reject', 'counter', 'consider'].includes(parsed.team2Analysis?.recommendation?.decision) 
+              ? parsed.team2Analysis.recommendation.decision : 'consider',
+            confidence: Math.max(0, Math.min(1, parsed.team2Analysis?.recommendation?.confidence || 0.5)),
+            reasoning: parsed.team2Analysis?.recommendation?.reasoning || 'Analysis incomplete',
+            pros: Array.isArray(parsed.team2Analysis?.recommendation?.pros) ? parsed.team2Analysis.recommendation.pros : [],
+            cons: Array.isArray(parsed.team2Analysis?.recommendation?.cons) ? parsed.team2Analysis.recommendation.cons : [],
+          },
+        },
         marketValue: {
           team1Total: parsed.marketValue?.team1Total || 0,
           team2Total: parsed.marketValue?.team2Total || 0,
@@ -936,21 +1018,19 @@ Focus on providing actionable insights for making the trade decision.`;
           valueVerdict: ['fair', 'team1_wins', 'team2_wins'].includes(parsed.marketValue?.valueVerdict) 
             ? parsed.marketValue.valueVerdict : 'fair',
         },
-        impactAnalysis: {
-          team1Impact: {
-            positionalImpact: parsed.impactAnalysis?.team1Impact?.positionalImpact || {},
-            weeklyProjection: parsed.impactAnalysis?.team1Impact?.weeklyProjection || 0,
-            seasonProjection: parsed.impactAnalysis?.team1Impact?.seasonProjection || 0,
-          },
-          team2Impact: {
-            positionalImpact: parsed.impactAnalysis?.team2Impact?.positionalImpact || {},
-            weeklyProjection: parsed.impactAnalysis?.team2Impact?.weeklyProjection || 0,
-            seasonProjection: parsed.impactAnalysis?.team2Impact?.seasonProjection || 0,
-          },
+        riskAssessment: {
+          team1Risk: ['low', 'medium', 'high'].includes(parsed.riskAssessment?.team1Risk) 
+            ? parsed.riskAssessment.team1Risk : 'medium',
+          team2Risk: ['low', 'medium', 'high'].includes(parsed.riskAssessment?.team2Risk) 
+            ? parsed.riskAssessment.team2Risk : 'medium',
+          riskFactors: Array.isArray(parsed.riskAssessment?.riskFactors) ? parsed.riskAssessment.riskFactors : [],
         },
-        playerAnalysis: parsed.playerAnalysis || {},
-        alternativeOptions: Array.isArray(parsed.alternativeOptions) ? parsed.alternativeOptions : [],
-        riskFactors: Array.isArray(parsed.riskFactors) ? parsed.riskFactors : [],
+        timing: {
+          optimalTiming: parsed.timing?.optimalTiming || false,
+          seasonContext: parsed.timing?.seasonContext || 'Mid-season timing',
+          urgency: ['low', 'medium', 'high'].includes(parsed.timing?.urgency) ? parsed.timing.urgency : 'medium',
+        },
+        summary: parsed.summary || 'Analysis incomplete',
         keyInsights: Array.isArray(parsed.keyInsights) ? parsed.keyInsights : [],
         lastUpdated: new Date(),
       };
@@ -958,24 +1038,59 @@ Focus on providing actionable insights for making the trade decision.`;
       console.error('Failed to parse trade analysis response:', error);
       
       return {
-        overallGrade: 'C',
         fairnessScore: 5,
-        recommendation: 'negotiate',
-        reasoning: 'Analysis failed - manual review required',
+        team1Analysis: {
+          grade: 'C',
+          impact: {
+            positionalChange: {},
+            startingLineupImpact: 0,
+            depthChartImpact: 0,
+            byeWeekHelp: false,
+            playoffImplications: 'Unable to analyze',
+          },
+          recommendation: {
+            decision: 'consider',
+            confidence: 0.1,
+            reasoning: 'Analysis failed - manual review required',
+            pros: [],
+            cons: ['AI analysis unavailable'],
+          },
+        },
+        team2Analysis: {
+          grade: 'C',
+          impact: {
+            positionalChange: {},
+            startingLineupImpact: 0,
+            depthChartImpact: 0,
+            byeWeekHelp: false,
+            playoffImplications: 'Unable to analyze',
+          },
+          recommendation: {
+            decision: 'consider',
+            confidence: 0.1,
+            reasoning: 'Analysis failed - manual review required',
+            pros: [],
+            cons: ['AI analysis unavailable'],
+          },
+        },
         marketValue: {
           team1Total: 0,
           team2Total: 0,
           difference: 0,
           valueVerdict: 'fair',
         },
-        impactAnalysis: {
-          team1Impact: { positionalImpact: {}, weeklyProjection: 0, seasonProjection: 0 },
-          team2Impact: { positionalImpact: {}, weeklyProjection: 0, seasonProjection: 0 },
+        riskAssessment: {
+          team1Risk: 'medium',
+          team2Risk: 'medium',
+          riskFactors: ['AI analysis unavailable'],
         },
-        playerAnalysis: {},
-        alternativeOptions: [],
-        riskFactors: ['AI analysis unavailable'],
-        keyInsights: ['Manual trade evaluation recommended'],
+        timing: {
+          optimalTiming: false,
+          seasonContext: 'Unable to analyze timing',
+          urgency: 'medium',
+        },
+        summary: 'Analysis failed - manual review required',
+        keyInsights: ['Manual trade evaluation recommended', 'AI analysis temporarily unavailable'],
         lastUpdated: new Date(),
       };
     }
@@ -1286,8 +1401,9 @@ Focus on maximizing expected points while considering the specified optimization
           output: JSON.stringify(analysis),
           metadata: {
             provider: provider,
-            grade: analysis.overallGrade,
-            recommendation: analysis.recommendation,
+            team1Grade: analysis.team1Analysis.grade,
+            team2Grade: analysis.team2Analysis.grade,
+            fairnessScore: analysis.fairnessScore,
             week: request.week,
             riskTolerance: request.userPreferences?.riskTolerance || 'moderate',
           },

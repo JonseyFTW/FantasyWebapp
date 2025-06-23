@@ -246,8 +246,9 @@ router.post('/trade-analysis', authenticateToken, async (req: AuthenticatedReque
         requestId: req.headers['x-request-id'] || 'unknown',
         analysisType: 'trade_analysis',
         week: validatedData.week,
-        recommendation: analysis.recommendation,
-        grade: analysis.overallGrade,
+        team1Grade: analysis.team1Analysis.grade,
+        team2Grade: analysis.team2Analysis.grade,
+        fairnessScore: analysis.fairnessScore,
       },
     });
   } catch (error) {
