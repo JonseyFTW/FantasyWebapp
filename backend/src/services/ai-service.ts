@@ -153,6 +153,37 @@ export interface TradeAnalysisResult {
     seasonContext: string;
     urgency: 'low' | 'medium' | 'high';
   };
+  playerData: {
+    [playerId: string]: {
+      player_id: string;
+      player_name: string;
+      position: string;
+      team: string;
+      avg_fantasy_points_per_game: number;
+      consistency_score: number;
+      trends: Array<{
+        week: number;
+        season: number;
+        fantasy_points: number;
+        passing_yards?: number;
+        rushing_yards?: number;
+        receiving_yards?: number;
+        passing_tds?: number;
+        rushing_tds?: number;
+        receiving_tds?: number;
+      }>;
+      weekly_projections: Array<{
+        week: number;
+        projected_points: number;
+        confidence: number;
+      }>;
+      metrics?: {
+        upward_trend: 'up' | 'down' | 'steady';
+        position_rank: number;
+        projection_confidence: number;
+      };
+    };
+  };
   summary: string;
   keyInsights: string[];
   similarTrades?: string[];
@@ -351,7 +382,7 @@ export class AIService {
   private getMockMCPData(method: string, params: any): any {
     const playerId = params[0]?.playerId || params[0]?.playerIds?.[0];
     
-    // Mock player analytics data
+    // Mock player analytics data with weekly trends
     const mockAnalytics: Record<string, any> = {
       '4046': { // Jayden Daniels
         player_id: '4046',
@@ -361,6 +392,18 @@ export class AIService {
         avg_fantasy_points_per_game: 21.8,
         total_yards: 3568,
         season_fantasy_points: 283.4,
+        trends: [
+          { week: 14, season: 2024, fantasy_points: 24.2, passing_yards: 268, rushing_yards: 42, passing_tds: 2, rushing_tds: 1 },
+          { week: 13, season: 2024, fantasy_points: 22.8, passing_yards: 245, rushing_yards: 38, passing_tds: 1, rushing_tds: 1 },
+          { week: 12, season: 2024, fantasy_points: 28.4, passing_yards: 315, rushing_yards: 52, passing_tds: 3, rushing_tds: 1 },
+          { week: 11, season: 2024, fantasy_points: 19.6, passing_yards: 210, rushing_yards: 35, passing_tds: 1, rushing_tds: 1 },
+          { week: 10, season: 2024, fantasy_points: 25.2, passing_yards: 285, rushing_yards: 45, passing_tds: 2, rushing_tds: 1 },
+          { week: 9, season: 2024, fantasy_points: 21.4, passing_yards: 252, rushing_yards: 41, passing_tds: 2, rushing_tds: 0 },
+          { week: 8, season: 2024, fantasy_points: 18.8, passing_yards: 195, rushing_yards: 28, passing_tds: 1, rushing_tds: 1 },
+          { week: 7, season: 2024, fantasy_points: 26.6, passing_yards: 295, rushing_yards: 58, passing_tds: 2, rushing_tds: 1 },
+          { week: 6, season: 2024, fantasy_points: 20.2, passing_yards: 235, rushing_yards: 35, passing_tds: 1, rushing_tds: 1 },
+          { week: 5, season: 2024, fantasy_points: 16.4, passing_yards: 180, rushing_yards: 25, passing_tds: 1, rushing_tds: 0 }
+        ],
         metrics: {
           consistency_score: 78,
           upward_trend: 'up',
@@ -376,6 +419,18 @@ export class AIService {
         avg_fantasy_points_per_game: 17.2,
         total_yards: 2987,
         season_fantasy_points: 223.6,
+        trends: [
+          { week: 14, season: 2024, fantasy_points: 16.8, passing_yards: 235, rushing_yards: 8, passing_tds: 1, rushing_tds: 0 },
+          { week: 13, season: 2024, fantasy_points: 18.4, passing_yards: 265, rushing_yards: 12, passing_tds: 2, rushing_tds: 0 },
+          { week: 12, season: 2024, fantasy_points: 15.2, passing_yards: 195, rushing_yards: 5, passing_tds: 1, rushing_tds: 0 },
+          { week: 11, season: 2024, fantasy_points: 21.6, passing_yards: 315, rushing_yards: 15, passing_tds: 3, rushing_tds: 0 },
+          { week: 10, season: 2024, fantasy_points: 14.8, passing_yards: 180, rushing_yards: 3, passing_tds: 1, rushing_tds: 0 },
+          { week: 9, season: 2024, fantasy_points: 19.2, passing_yards: 275, rushing_yards: 8, passing_tds: 2, rushing_tds: 0 },
+          { week: 8, season: 2024, fantasy_points: 12.4, passing_yards: 152, rushing_yards: 2, passing_tds: 0, rushing_tds: 0 },
+          { week: 7, season: 2024, fantasy_points: 17.8, passing_yards: 248, rushing_yards: 6, passing_tds: 2, rushing_tds: 0 },
+          { week: 6, season: 2024, fantasy_points: 16.6, passing_yards: 225, rushing_yards: 4, passing_tds: 1, rushing_tds: 0 },
+          { week: 5, season: 2024, fantasy_points: 18.2, passing_yards: 260, rushing_yards: 7, passing_tds: 2, rushing_tds: 0 }
+        ],
         metrics: {
           consistency_score: 65,
           upward_trend: 'steady',
@@ -400,7 +455,18 @@ export class AIService {
             total_tds_per_game: playerId === '4046' ? 2.1 : 1.5
           },
           confidence_level: baseStats.metrics.projection_confidence,
-          trend_direction: baseStats.metrics.upward_trend
+          trend_direction: baseStats.metrics.upward_trend,
+          weekly_projections: playerId === '4046' ? [
+            { week: 15, projected_points: 23.5, confidence: 85 },
+            { week: 16, projected_points: 24.8, confidence: 82 },
+            { week: 17, projected_points: 22.1, confidence: 78 },
+            { week: 18, projected_points: 25.2, confidence: 75 }
+          ] : [
+            { week: 15, projected_points: 16.8, confidence: 72 },
+            { week: 16, projected_points: 17.5, confidence: 70 },
+            { week: 17, projected_points: 16.2, confidence: 68 },
+            { week: 18, projected_points: 18.1, confidence: 65 }
+          ]
         } : null;
       
       case 'sleeper.comparePlayersHQ':
@@ -666,7 +732,7 @@ export class AIService {
       };
 
       const aiResponse = await this.chat(aiRequest);
-      const analysis = this.parseTradeAnalysisResponse(aiResponse.content, request);
+      const analysis = this.parseTradeAnalysisResponse(aiResponse.content, request, playerAnalytics, playerProjections);
 
       // Store analysis in database
       await this.storeTradeAnalysis(request, analysis, aiResponse.provider);
@@ -1214,7 +1280,7 @@ Please provide a comprehensive trade analysis including:
 Focus on providing actionable insights for making the trade decision.`;
   }
 
-  private parseTradeAnalysisResponse(aiResponse: string, request: TradeAnalysisRequest): TradeAnalysisResult {
+  private parseTradeAnalysisResponse(aiResponse: string, request: TradeAnalysisRequest, playerAnalytics: any = {}, playerProjections: any = {}): TradeAnalysisResult {
     try {
       const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
@@ -1280,6 +1346,7 @@ Focus on providing actionable insights for making the trade decision.`;
           seasonContext: parsed.timing?.seasonContext || 'Mid-season timing',
           urgency: ['low', 'medium', 'high'].includes(parsed.timing?.urgency) ? parsed.timing.urgency : 'medium',
         },
+        playerData: this.buildPlayerDataSection(request, playerAnalytics, playerProjections),
         summary: parsed.summary || 'Analysis incomplete',
         keyInsights: Array.isArray(parsed.keyInsights) ? parsed.keyInsights : [],
         lastUpdated: new Date(),
@@ -1339,11 +1406,63 @@ Focus on providing actionable insights for making the trade decision.`;
           seasonContext: 'Unable to analyze timing',
           urgency: 'medium',
         },
+        playerData: this.buildPlayerDataSection(request, playerAnalytics, playerProjections),
         summary: 'Analysis failed - manual review required',
         keyInsights: ['Manual trade evaluation recommended', 'AI analysis temporarily unavailable'],
         lastUpdated: new Date(),
       };
     }
+  }
+
+  private buildPlayerDataSection(request: TradeAnalysisRequest, playerAnalytics: any = {}, playerProjections: any = {}): any {
+    const playerData: any = {};
+    
+    // Get all player IDs involved in the trade
+    const allPlayerIds = [
+      ...request.team1Players.give,
+      ...request.team1Players.receive,
+      ...request.team2Players.give,
+      ...request.team2Players.receive
+    ];
+
+    allPlayerIds.forEach(playerId => {
+      const analytics = playerAnalytics[playerId];
+      const projections = playerProjections[playerId];
+      
+      if (analytics || projections) {
+        playerData[playerId] = {
+          player_id: playerId,
+          player_name: analytics?.player_name || `Player ${playerId}`,
+          position: analytics?.position || 'N/A',
+          team: analytics?.team || 'N/A',
+          avg_fantasy_points_per_game: analytics?.avg_fantasy_points_per_game || 0,
+          consistency_score: analytics?.consistency_score || analytics?.metrics?.consistency_score || 0,
+          trends: analytics?.trends || [],
+          weekly_projections: projections?.weekly_projections || [],
+          metrics: analytics?.metrics || {}
+        };
+      } else {
+        // Use mock data for development or when analytics not available
+        const mockData = this.getMockMCPData('sleeper.getPlayerAnalytics', [{ playerId }]);
+        const mockProjections = this.getMockMCPData('sleeper.getPlayerProjections', [{ playerId }]);
+        
+        if (mockData) {
+          playerData[playerId] = {
+            player_id: playerId,
+            player_name: mockData.player_name,
+            position: mockData.position,
+            team: mockData.team,
+            avg_fantasy_points_per_game: mockData.avg_fantasy_points_per_game,
+            consistency_score: mockData.consistency_score,
+            trends: mockData.trends,
+            weekly_projections: mockProjections?.weekly_projections || [],
+            metrics: mockData.metrics
+          };
+        }
+      }
+    });
+
+    return playerData;
   }
 
   // Waiver Wire Helper Methods

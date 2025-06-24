@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Loader2, TrendingUp, TrendingDown, AlertTriangle, Scale, Star } from 'lucide-react';
 import { aiClient, TradeRequest } from '@/lib/ai-client';
+import { PlayerPerformanceChart } from '@/components/charts/player-performance-chart';
 
 interface TradeAnalyzerProps {
   leagueId: string;
@@ -522,6 +523,26 @@ export function TradeAnalyzer({ leagueId, userId, week, availableTeams }: TradeA
               </div>
             </CardContent>
           </Card>
+
+          {/* Player Performance Charts */}
+          {analysis.playerData && Object.keys(analysis.playerData).length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Player Performance Analysis</CardTitle>
+                <CardDescription>
+                  Visual comparison of player performance trends and projections to support trade decision
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <PlayerPerformanceChart 
+                  players={Object.values(analysis.playerData)}
+                  showProjections={true}
+                  showComparison={true}
+                  height={500}
+                />
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
     </div>
