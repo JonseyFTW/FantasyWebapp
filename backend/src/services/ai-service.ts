@@ -732,7 +732,7 @@ export class AIService {
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
-        maxTokens: 4000,
+        maxTokens: 2000, // Reduced to stay within Claude's limits
         temperature: 0.1,
         provider: AIProvider.CLAUDE, // Use Claude since we have a valid API key
       };
@@ -1217,38 +1217,27 @@ User Preferences:
       if (!player) return `Player ${playerId}: Data not available`;
       
       const analytics = playerAnalytics[playerId];
-      const projections = playerProjections[playerId];
       
+      // Simplified analytics to reduce prompt size
       let analyticsText = '';
       if (analytics) {
-        analyticsText += `
-  • Analytics: ${analytics.metrics?.consistency_score || analytics.consistencyScore || 'N/A'}/100 consistency, ${analytics.metrics?.upward_trend || analytics.trendDirection || 'steady'} trend
-  • Position Rank: ${analytics.metrics?.position_rank || analytics.positionRank || 'N/A'} (${analytics.percentileRank || 'N/A'}th percentile)
-  • Performance: ${analytics.avg_fantasy_points_per_game || analytics.avgFantasyPoints || 'N/A'} avg PPG`;
+        const avgPPG = analytics.avg_fantasy_points_per_game || analytics.avgFantasyPoints || 'N/A';
+        const consistency = analytics.metrics?.consistency_score || analytics.consistencyScore || 'N/A';
+        analyticsText = ` (${avgPPG} PPG, ${consistency}/100 consistency)`;
       }
       
-      if (projections) {
-        analyticsText += `
-  • ROS Projection: ${projections.projected_stats?.fantasy_points_per_game || projections.fantasyPointsPerGame || 'N/A'} PPG over ${projections.weeks || 'N/A'} weeks
-  • Confidence: ${projections.confidence_level || projections.confidenceLevel || 'N/A'}/100, trending ${projections.trend_direction || projections.trendDirection || 'unknown'}`;
-      }
-      
-      return `Player ${playerId} (${player.full_name || player.player_name || 'Unknown'}): ${player.position} - ${player.team || 'FA'} - Status: ${player.status || 'Active'}${analyticsText}`;
+      return `${player.full_name || player.player_name || 'Unknown'} (${player.position}, ${player.team || 'FA'})${analyticsText}`;
     }).join('\n');
 
-    // Add player comparisons if available
+    // Simplified comparisons to reduce prompt size
     let comparisonsText = '';
-    if (playerComparisons && playerComparisons.comparisons) {
+    if (playerComparisons && playerComparisons.comparisons && playerComparisons.comparisons.length > 0) {
       comparisonsText = `
 
-PLAYER COMPARISONS:
-${playerComparisons.comparisons.map((comp: any) => 
-  `${comp.player1Name} vs ${comp.player2Name}: 
-  • Fantasy Points: ${comp.player1FantasyPoints || 0} vs ${comp.player2FantasyPoints || 0}
-  • Consistency: ${comp.player1Consistency || 0} vs ${comp.player2Consistency || 0}
-  • Trend: ${comp.player1Trend || 'N/A'} vs ${comp.player2Trend || 'N/A'}
-  • Winner: ${comp.winner || 'Even'}
-`).join('\n')}`;
+KEY COMPARISONS:
+${playerComparisons.comparisons.slice(0, 2).map((comp: any) => 
+  `${comp.player1Name} vs ${comp.player2Name}: Winner - ${comp.winner || 'Even'}`
+).join('\n')}`;
     }
 
     return `Please analyze this trade proposal for my fantasy team.
