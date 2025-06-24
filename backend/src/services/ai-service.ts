@@ -612,7 +612,7 @@ export class AIService {
       }
 
       // Get fantasy data using direct Sleeper API + Enhanced Analytics
-      let leagueData: any, playersData: any, userRoster: any, playerAnalytics: any = {}, playerComparisons: any, playerProjections: any;
+      let leagueData: any, playersData: any, userRoster: any, playerAnalytics: any = {}, playerComparisons: any, playerProjections: any, matchupAnalysis: any = {};
       
       if (process.env.NODE_ENV === 'development' && process.env.BYPASS_AUTH === 'true') {
         // Skip Sleeper API calls in development mode - use mock data
@@ -663,26 +663,30 @@ export class AIService {
         ...request.team2Players.receive
       ];
 
-      console.log('Fetching real player analytics for trade analysis');
+      console.log('Fetching enhanced player analytics for trade analysis');
       try {
-        // Try to use real MCP server for enhanced analytics, but with strict limits
-        const maxPlayers = Math.min(allPlayerIds.length, 4); // Limit to 4 players max to prevent memory issues
-        const limitedPlayerIds = allPlayerIds.slice(0, maxPlayers);
+        // Enhanced analytics with full player data and comparisons
+        console.log(`Fetching analytics for ${allPlayerIds.length} players`);
         
-        console.log(`Limiting analytics to ${limitedPlayerIds.length} players to prevent timeout`);
-        
-        const analyticsPromises = limitedPlayerIds.map(async (playerId) => {
+        const analyticsPromises = allPlayerIds.map(async (playerId) => {
           try {
-            // Shorter timeout and only get essential data
+            // Increased timeout for better data quality
             const timeoutPromise = new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Analytics timeout')), 3000) // Reduced to 3s
+              setTimeout(() => reject(new Error('Analytics timeout')), 10000) // Increased to 10s
             );
             
-            // Only get analytics, skip projections to reduce load
-            const analyticsPromise = this.callMCPMethod('sleeper.getPlayerAnalytics', [{ playerId }]);
+            // Get comprehensive analytics including projections
+            const [analyticsPromise, projectionsPromise] = [
+              this.callMCPMethod('sleeper.getPlayerAnalytics', [{ playerId }]),
+              this.callMCPMethod('sleeper.getPlayerProjections', [{ playerId, weeks: 8 }]) // ROS projections
+            ];
             
-            const analytics = await Promise.race([analyticsPromise, timeoutPromise]) as any;
-            return { playerId, analytics, projections: null }; // Skip projections for now
+            const [analytics, projections] = await Promise.race([
+              Promise.all([analyticsPromise, projectionsPromise]), 
+              timeoutPromise
+            ]) as any[];
+            
+            return { playerId, analytics, projections };
           } catch (error) {
             console.warn(`Failed to get analytics for player ${playerId}:`, error);
             // Fall back to mock data for this specific player
@@ -695,16 +699,79 @@ export class AIService {
         playerAnalytics = Object.fromEntries(
           analyticsResults.map(r => [r.playerId, r.analytics])
         );
-        playerProjections = {}; // Skip projections for stability
-        playerComparisons = null; // Skip comparisons for stability
+        playerProjections = Object.fromEntries(
+          analyticsResults.filter(r => r.projections).map(r => [r.playerId, r.projections])
+        );
 
-        console.log(`Successfully got analytics for ${Object.keys(playerAnalytics).length} players`);
+        // Get player comparisons for the trade
+        try {
+          if (allPlayerIds.length >= 2) {
+            playerComparisons = await Promise.race([
+              this.callMCPMethod('sleeper.comparePlayersHQ', [{ playerIds: allPlayerIds }]),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('Comparison timeout')), 8000))
+            ]) as any;
+            console.log('Successfully retrieved player comparisons');
+          }
+        } catch (error) {
+          console.warn('Player comparison failed:', error);
+          playerComparisons = null;
+        }
+
+        // Get advanced matchup analysis for key players
+        try {
+          // For each player, try to get their upcoming opponent defenses
+          const matchupPromises = allPlayerIds.slice(0, 6).map(async (playerId) => { // Limit to top 6 players
+            try {
+              // Get player info to determine their NFL team
+              const playerInfo = playerAnalytics[playerId];
+              if (playerInfo?.team) {
+                // Get matchup analysis against various strong/weak defenses
+                const strongDefenses = ['SF', 'DAL', 'BUF', 'NYJ', 'PIT']; // Example strong defenses
+                const weakDefenses = ['JAX', 'DET', 'ARI', 'CAR', 'NYG']; // Example weak defenses
+                
+                const defenseMatchups = await Promise.all([
+                  // Sample one strong and one weak defense for comparison
+                  this.callMCPMethod('sleeper.getMatchupAnalysis', [{ playerId, opponentTeam: strongDefenses[0] }]),
+                  this.callMCPMethod('sleeper.getMatchupAnalysis', [{ playerId, opponentTeam: weakDefenses[0] }])
+                ]);
+                
+                return {
+                  playerId,
+                  strongDefenseMatchup: defenseMatchups[0],
+                  weakDefenseMatchup: defenseMatchups[1]
+                };
+              }
+            } catch (error) {
+              console.warn(`Matchup analysis failed for player ${playerId}:`, error);
+            }
+            return null;
+          });
+
+          const matchupResults = await Promise.all(matchupPromises);
+          matchupResults.filter(r => r !== null).forEach(result => {
+            if (result) {
+              matchupAnalysis[result.playerId] = {
+                strongDefenseMatchup: result.strongDefenseMatchup,
+                weakDefenseMatchup: result.weakDefenseMatchup
+              };
+            }
+          });
+
+          if (Object.keys(matchupAnalysis).length > 0) {
+            console.log(`Retrieved matchup analysis for ${Object.keys(matchupAnalysis).length} players`);
+          }
+        } catch (error) {
+          console.warn('Matchup analysis failed:', error);
+        }
+
+        console.log(`Successfully got analytics for ${Object.keys(playerAnalytics).length} players, projections for ${Object.keys(playerProjections).length} players`);
 
       } catch (error) {
         console.warn('Real analytics failed, using mock data fallback:', error);
         playerAnalytics = {};
         playerProjections = {};
         playerComparisons = null;
+        matchupAnalysis = {};
         
         // Use mock data as final fallback
         allPlayerIds.forEach(playerId => {
@@ -724,7 +791,8 @@ export class AIService {
         userRoster, 
         playerAnalytics, 
         playerProjections, 
-        playerComparisons
+        playerComparisons,
+        matchupAnalysis
       );
 
       const aiRequest: AIRequest = {
@@ -1194,7 +1262,8 @@ You must respond with a valid JSON object containing:
     userRoster: any,
     playerAnalytics: any = {},
     playerProjections: any = {},
-    playerComparisons: any = null
+    playerComparisons: any = null,
+    matchupAnalysis: any = {}
   ): string {
     const preferences = request.userPreferences;
     const preferencesText = preferences ? `
@@ -1217,16 +1286,38 @@ User Preferences:
       if (!player) return `Player ${playerId}: Data not available`;
       
       const analytics = playerAnalytics[playerId];
+      const matchups = matchupAnalysis[playerId];
       
       // Simplified analytics to reduce prompt size
       let analyticsText = '';
       if (analytics) {
         const avgPPG = analytics.avg_fantasy_points_per_game || analytics.avgFantasyPoints || 'N/A';
         const consistency = analytics.metrics?.consistency_score || analytics.consistencyScore || 'N/A';
-        analyticsText = ` (${avgPPG} PPG, ${consistency}/100 consistency)`;
+        const trend = analytics.metrics?.upward_trend || 'steady';
+        analyticsText = ` (${avgPPG} PPG, ${consistency}/100 consistency, ${trend} trend)`;
+      }
+
+      // Add matchup analysis if available
+      let matchupText = '';
+      if (matchups) {
+        const strongDefAvg = matchups.strongDefenseMatchup?.avg_fantasy_points || 'N/A';
+        const weakDefAvg = matchups.weakDefenseMatchup?.avg_fantasy_points || 'N/A';
+        if (strongDefAvg !== 'N/A' && weakDefAvg !== 'N/A') {
+          const variance = Math.round((weakDefAvg - strongDefAvg) * 10) / 10;
+          matchupText = ` | Matchup variance: ${variance} pts vs strong/weak defenses`;
+        }
+      }
+
+      // Add projections if available
+      let projectionsText = '';
+      if (playerProjections[playerId]?.weekly_projections?.length > 0) {
+        const avgProjection = playerProjections[playerId].weekly_projections
+          .slice(0, 4)
+          .reduce((sum: number, proj: any) => sum + proj.projected_points, 0) / 4;
+        projectionsText = ` | ROS projection: ${Math.round(avgProjection * 10) / 10} PPG`;
       }
       
-      return `${player.full_name || player.player_name || 'Unknown'} (${player.position}, ${player.team || 'FA'})${analyticsText}`;
+      return `${player.full_name || player.player_name || 'Unknown'} (${player.position}, ${player.team || 'FA'})${analyticsText}${matchupText}${projectionsText}`;
     }).join('\n');
 
     // Simplified comparisons to reduce prompt size
@@ -1850,19 +1941,41 @@ Focus on maximizing expected points while considering the specified optimization
       throw new Error('ANTHROPIC_API_KEY not configured');
     }
 
+    // Separate system messages from conversation messages
+    const systemMessages = request.messages.filter(msg => msg.role === 'system');
+    const conversationMessages = request.messages.filter(msg => msg.role !== 'system');
+    
+    // Combine system messages into a single system prompt
+    const systemPrompt = systemMessages.length > 0 
+      ? systemMessages.map(msg => msg.content).join('\n\n')
+      : undefined;
+
+    // Ensure conversation messages alternate properly
+    const validatedMessages = conversationMessages.map(msg => ({
+      role: msg.role === 'user' ? 'user' as const : 'assistant' as const,
+      content: msg.content,
+    }));
+
+    const requestBody: any = {
+      model: 'claude-3-7-sonnet-20250219',
+      max_tokens: request.maxTokens || 2000,
+      temperature: request.temperature || 0.1,
+      messages: validatedMessages,
+    };
+
+    // Add system prompt if present
+    if (systemPrompt) {
+      requestBody.system = systemPrompt;
+    }
+
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
+        'anthropic-version': '2023-10-01',
       },
-      body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
-        max_tokens: request.maxTokens || 2000,
-        temperature: request.temperature || 0.1,
-        messages: request.messages,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {

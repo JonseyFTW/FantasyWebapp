@@ -49,7 +49,7 @@ This is a monorepo fantasy football web application with AI-powered analytics us
 - **shared/**: Common TypeScript types and utilities shared across services
 
 ### Key Integrations
-- **Sleeper MCP Server**: External dependency at `../SleeperMCP/` providing fantasy data via Model Context Protocol
+- **Sleeper MCP Server**: External dependency at `../SleeperMCP/` (https://sleepermcp-production.up.railway.app/) and local files (/mnt/d/scripts/sleepermcp/sleepermcp) providing fantasy data via Model Context Protocol
 - **PostgreSQL**: User data, leagues, player stats, AI analyses (see backend/prisma/schema.prisma)
 - **Redis**: AI response caching and session storage
 - **OAuth**: Google and Discord authentication via NextAuth.js

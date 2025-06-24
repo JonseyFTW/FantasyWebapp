@@ -28,7 +28,7 @@ export function createAIConfig(): AIManagerConfig {
   if (process.env.ANTHROPIC_API_KEY) {
     providers[AIProvider.CLAUDE] = {
       apiKey: process.env.ANTHROPIC_API_KEY,
-      model: process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022',
+      model: process.env.ANTHROPIC_MODEL || 'claude-3-7-sonnet-20250219',
       maxRetries: parseInt(process.env.ANTHROPIC_MAX_RETRIES || '3'),
       timeout: parseInt(process.env.ANTHROPIC_TIMEOUT || '30000'),
     };
@@ -149,6 +149,7 @@ export const AI_MODELS = {
     'gpt-3.5-turbo': { contextWindow: 16384, costPer1kTokens: 0.001 },
   },
   [AIProvider.CLAUDE]: {
+    'claude-3-7-sonnet-20250219': { contextWindow: 200000, costPer1kTokens: 0.003 },
     'claude-3-5-sonnet-20241022': { contextWindow: 200000, costPer1kTokens: 0.003 },
     'claude-3-5-haiku-20241022': { contextWindow: 200000, costPer1kTokens: 0.00025 },
     'claude-3-opus-20240229': { contextWindow: 200000, costPer1kTokens: 0.015 },
