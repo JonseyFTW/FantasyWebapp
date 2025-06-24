@@ -467,6 +467,19 @@ export class AIService {
       case 'sleeper.comparePlayersHQ':
         const playerIds = params[0]?.playerIds || [];
         const players = playerIds.map((id: string) => mockAnalytics[id]).filter(Boolean);
+        
+        // Handle empty players array
+        if (players.length === 0) {
+          return {
+            comparison_summary: {
+              players_compared: 0,
+              highest_avg_points: 0,
+              most_consistent: null
+            },
+            players: []
+          };
+        }
+        
         return {
           comparison_summary: {
             players_compared: players.length,
@@ -1957,7 +1970,7 @@ Focus on maximizing expected points while considering the specified optimization
     }));
 
     const requestBody: any = {
-      model: 'claude-3-7-sonnet-20250219',
+      model: 'claude-3-5-sonnet-20241022',
       max_tokens: request.maxTokens || 2000,
       temperature: request.temperature || 0.1,
       messages: validatedMessages,

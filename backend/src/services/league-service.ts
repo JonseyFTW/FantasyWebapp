@@ -45,7 +45,7 @@ export class LeagueService {
   private prisma: PrismaClient;
 
   constructor(sleeperAPIService?: SleeperAPIService, prismaClient?: PrismaClient) {
-    this.mcpServerUrl = process.env.MCP_SERVER_URL || 'http://localhost:3001';
+    this.mcpServerUrl = process.env.MCP_SERVER_URL || 'https://sleepermcp-production.up.railway.app';
     this.sleeperAPI = sleeperAPIService || defaultSleeperAPI;
     this.prisma = prismaClient || prisma;
   }

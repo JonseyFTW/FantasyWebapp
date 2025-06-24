@@ -3,12 +3,12 @@ import { AIManagerConfig } from '../services/ai-manager';
 
 export function createAIConfig(): AIManagerConfig {
   // MCP server is optional - service can work without it
-  const mcpServerUrl = process.env.MCP_SERVER_URL || 'http://localhost:3001';
+  const mcpServerUrl = process.env.MCP_SERVER_URL || 'https://sleepermcp-production.up.railway.app';
   
   if (!process.env.MCP_SERVER_URL) {
-    console.log('⚠️  MCP_SERVER_URL not set, using default: http://localhost:3001');
-    console.log('⚠️  For Railway deployment, set MCP_SERVER_URL to your deployed MCP service URL');
-    console.log('⚠️  MCP features will be limited without a proper MCP server connection');
+    console.log('⚠️  MCP_SERVER_URL not set, using default: https://sleepermcp-production.up.railway.app');
+    console.log('⚠️  For local development, set MCP_SERVER_URL to http://localhost:3001');
+    console.log('⚠️  MCP features will be limited if the MCP server is not accessible');
   }
 
   // Provider configurations
@@ -28,7 +28,7 @@ export function createAIConfig(): AIManagerConfig {
   if (process.env.ANTHROPIC_API_KEY) {
     providers[AIProvider.CLAUDE] = {
       apiKey: process.env.ANTHROPIC_API_KEY,
-      model: process.env.ANTHROPIC_MODEL || 'claude-3-7-sonnet-20250219',
+      model: process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022',
       maxRetries: parseInt(process.env.ANTHROPIC_MAX_RETRIES || '3'),
       timeout: parseInt(process.env.ANTHROPIC_TIMEOUT || '30000'),
     };
@@ -149,7 +149,6 @@ export const AI_MODELS = {
     'gpt-3.5-turbo': { contextWindow: 16384, costPer1kTokens: 0.001 },
   },
   [AIProvider.CLAUDE]: {
-    'claude-3-7-sonnet-20250219': { contextWindow: 200000, costPer1kTokens: 0.003 },
     'claude-3-5-sonnet-20241022': { contextWindow: 200000, costPer1kTokens: 0.003 },
     'claude-3-5-haiku-20241022': { contextWindow: 200000, costPer1kTokens: 0.00025 },
     'claude-3-opus-20240229': { contextWindow: 200000, costPer1kTokens: 0.015 },

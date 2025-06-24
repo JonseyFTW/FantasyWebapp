@@ -41,7 +41,7 @@ router.post('/sync', async (req, res) => {
     }
 
     // Call Sleeper MCP to get user data
-    const mcpServerUrl = process.env.MCP_SERVER_URL || 'http://localhost:3001';
+    const mcpServerUrl = process.env.MCP_SERVER_URL || 'https://sleepermcp-production.up.railway.app';
     const mcpResponse = await fetch(`${mcpServerUrl}/rpc`, {
       method: 'POST',
       headers: {
