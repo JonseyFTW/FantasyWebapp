@@ -568,7 +568,7 @@ export class AIService {
         ],
         maxTokens: 4000,
         temperature: 0.1,
-        provider: request.userPreferences?.riskTolerance === 'aggressive' ? AIProvider.CLAUDE : AIProvider.OPENAI,
+        provider: AIProvider.CLAUDE, // Use Claude since we have a valid API key
       };
 
       const aiResponse = await this.chat(aiRequest);
@@ -734,7 +734,7 @@ export class AIService {
         ],
         maxTokens: 4000,
         temperature: 0.1,
-        provider: request.userPreferences?.riskTolerance === 'aggressive' ? AIProvider.CLAUDE : AIProvider.OPENAI,
+        provider: AIProvider.CLAUDE, // Use Claude since we have a valid API key
       };
 
       const aiResponse = await this.chat(aiRequest);
