@@ -115,22 +115,22 @@ export class LeagueService {
       console.log('Using MCP for league details');
       
       // Get league info
-      const league = await this.callMCPTool('get_league', {
-        league_id: sleeperLeagueId
+      const league = await this.callMCPTool('sleeper.getLeague', {
+        leagueId: sleeperLeagueId
       });
 
       // Get all rosters
-      const rosters = await this.callMCPTool('get_league_rosters', {
-        league_id: sleeperLeagueId
+      const rosters = await this.callMCPTool('sleeper.getRosters', {
+        leagueId: sleeperLeagueId
       });
 
       // Get all users
-      const users = await this.callMCPTool('get_league_users', {
-        league_id: sleeperLeagueId
+      const users = await this.callMCPTool('sleeper.getUsers', {
+        leagueId: sleeperLeagueId
       });
 
       // Get current NFL state for week info
-      const nflState = await this.callMCPTool('get_nfl_state', {});
+      const nflState = await this.callMCPTool('sleeper.getNFLState', {});
 
       return {
         league,
@@ -169,8 +169,8 @@ export class LeagueService {
   async getLeagueMatchups(sleeperLeagueId: string, week: number): Promise<MatchupData[]> {
     try {
       try {
-        const matchups = await this.callMCPTool('get_league_matchups', {
-          league_id: sleeperLeagueId,
+        const matchups = await this.callMCPTool('sleeper.getMatchups', {
+          leagueId: sleeperLeagueId,
           week: week
         });
 
@@ -261,11 +261,11 @@ export class LeagueService {
       } catch (directAPIError) {
         console.warn('Direct API failed for standings, using MCP fallback:', directAPIError);
         // Fallback to MCP
-        rosters = await this.callMCPTool('get_league_rosters', {
-          league_id: sleeperLeagueId
+        rosters = await this.callMCPTool('sleeper.getRosters', {
+          leagueId: sleeperLeagueId
         });
-        users = await this.callMCPTool('get_league_users', {
-          league_id: sleeperLeagueId
+        users = await this.callMCPTool('sleeper.getUsers', {
+          leagueId: sleeperLeagueId
         });
       }
 
@@ -352,8 +352,8 @@ export class LeagueService {
         } catch (directAPIError) {
           console.warn('Direct API failed for user roster fallback, using MCP fallback:', directAPIError);
           const [rosters, users] = await Promise.all([
-            this.callMCPTool('get_league_rosters', { league_id: sleeperLeagueId }),
-            this.callMCPTool('get_league_users', { league_id: sleeperLeagueId })
+            this.callMCPTool('sleeper.getRosters', { leagueId: sleeperLeagueId }),
+            this.callMCPTool('sleeper.getUsers', { leagueId: sleeperLeagueId })
           ]);
           leagueData = { rosters, users };
         }
@@ -383,8 +383,8 @@ export class LeagueService {
         rosters = leagueData.rosters;
       } catch (directAPIError) {
         console.warn('Direct API failed for user roster, using MCP fallback:', directAPIError);
-        rosters = await this.callMCPTool('get_league_rosters', {
-          league_id: sleeperLeagueId
+        rosters = await this.callMCPTool('sleeper.getRosters', {
+          leagueId: sleeperLeagueId
         });
       }
 
@@ -428,7 +428,7 @@ export class LeagueService {
         console.log('Falling back to MCP for all players');
         
         // Fallback to MCP
-        const players = await this.callMCPTool('get_players_nfl', {});
+        const players = await this.callMCPTool('sleeper.getAllPlayers', {});
         return players || {};
       }
     } catch (error) {
@@ -454,7 +454,7 @@ export class LeagueService {
         allPlayers = await this.sleeperAPI.getAllPlayers();
       } catch (directAPIError) {
         console.warn('Direct API failed for players, trying MCP:', directAPIError);
-        allPlayers = await this.callMCPTool('get_players_nfl', {});
+        allPlayers = await this.callMCPTool('sleeper.getAllPlayers', {});
       }
 
       if (!allPlayers || typeof allPlayers !== 'object') {
