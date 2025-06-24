@@ -228,7 +228,7 @@ export class MCPClient {
     try {
       console.log(`Calling MCP tool: ${toolCall.name} with args:`, toolCall.arguments);
       
-      const response = await this.client.post('/', {
+      const response = await this.client.post('/rpc', {
         jsonrpc: '2.0',
         id: Date.now(),
         method: toolCall.name,
