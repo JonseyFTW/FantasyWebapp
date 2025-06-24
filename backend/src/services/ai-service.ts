@@ -612,7 +612,7 @@ export class AIService {
       }
 
       // Get fantasy data using direct Sleeper API + Enhanced Analytics
-      let leagueData, playersData, userRoster, playerAnalytics, playerComparisons, playerProjections;
+      let leagueData: any, playersData: any, userRoster: any, playerAnalytics: any = {}, playerComparisons: any, playerProjections: any;
       
       if (process.env.NODE_ENV === 'development' && process.env.BYPASS_AUTH === 'true') {
         // Skip Sleeper API calls in development mode - use mock data
