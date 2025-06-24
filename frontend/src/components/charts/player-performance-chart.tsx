@@ -10,8 +10,6 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  ComposedChart,
-  Bar,
   ReferenceLine,
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -181,7 +179,7 @@ export function PlayerPerformanceChart({
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={height}>
-            <ComposedChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+            <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis 
                 dataKey="week" 
@@ -228,7 +226,7 @@ export function PlayerPerformanceChart({
                   )}
                 </div>
               ))}
-            </ComposedChart>
+            </LineChart>
           </ResponsiveContainer>
         </CardContent>
       </Card>

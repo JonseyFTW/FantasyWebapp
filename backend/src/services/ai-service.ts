@@ -670,13 +670,20 @@ export class AIService {
 
       console.log('Fetching enhanced player analytics for trade analysis');
       try {
-        // Use MCP server for enhanced analytics
+        // Use MCP server for enhanced analytics with timeout
         const analyticsPromises = allPlayerIds.map(async (playerId) => {
           try {
-            const [analytics, projections] = await Promise.all([
+            // Add timeout to prevent hanging
+            const timeoutPromise = new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Analytics timeout')), 5000)
+            );
+            
+            const analyticsPromise = Promise.all([
               this.callMCPMethod('sleeper.getPlayerAnalytics', [{ playerId }]),
-              this.callMCPMethod('sleeper.getPlayerProjections', [{ playerId, weeks: 8 }]) // Rest of season
+              this.callMCPMethod('sleeper.getPlayerProjections', [{ playerId, weeks: 4 }]) // Reduced from 8 to 4 weeks
             ]);
+            
+            const [analytics, projections] = await Promise.race([analyticsPromise, timeoutPromise]) as any;
             return { playerId, analytics, projections };
           } catch (error) {
             console.warn(`Failed to get analytics for player ${playerId}:`, error);
