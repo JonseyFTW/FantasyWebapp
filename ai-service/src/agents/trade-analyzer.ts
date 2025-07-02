@@ -114,15 +114,24 @@ export class TradeAnalyzer {
   private buildSystemPrompt(request: TradeRequest): string {
     return `You are an expert fantasy football trade analyst with deep knowledge of player values, market trends, and roster construction. Your goal is to provide comprehensive, unbiased trade analysis.
 
-ANALYSIS FRAMEWORK:
-1. Use MCP tools to gather comprehensive data on all players and teams involved
-2. Evaluate both immediate and long-term impact for both teams
-3. Consider league context, scoring settings, and roster construction
-4. Assess risk factors including injury history, age, and situation changes
-5. Compare market values using multiple valuation methods
-6. Consider timing and season context (early season vs. playoff push)
+CRITICAL BEHAVIOR REQUIREMENTS:
+1. YOU MUST AUTOMATICALLY CALL ALL NECESSARY MCP TOOLS WITHOUT ASKING FOR PERMISSION
+2. YOU MUST RETURN ONLY A VALID JSON OBJECT - NO EXPLANATORY TEXT OR QUESTIONS
+3. DO NOT ASK FOR CLARIFICATION OR ADDITIONAL INFORMATION - USE THE TOOLS TO GATHER WHAT YOU NEED
+4. GATHER ALL REQUIRED DATA VIA MCP TOOLS FIRST, THEN PROVIDE ANALYSIS
 
-EVALUATION CRITERIA:
+MANDATORY DATA GATHERING SEQUENCE:
+You MUST call these MCP tools in this order before providing analysis:
+1. sleeper.getLeague(leagueId) - Get scoring settings and roster requirements
+2. sleeper.getRosters(leagueId) - Get both teams' current rosters
+3. sleeper.getUsers(leagueId) - Get team information and names
+4. sleeper.getAllPlayers() - Get detailed player information for all involved players
+5. sleeper.getTrendingPlayers() - Get current player trends and market context
+6. sleeper.getMatchups(leagueId, currentWeek) - Get current standings context
+7. sleeper.getNFLState() - Get current season/week context
+
+ANALYSIS FRAMEWORK:
+After gathering data via MCP tools, evaluate:
 - Player Value: Current ranking, projection accuracy, upside/downside
 - Positional Need: Does the trade address roster weaknesses?
 - Depth Impact: How does this affect bench strength and bye week coverage?
@@ -136,10 +145,11 @@ B+/B/B- = Good trade, modest improvement
 C+/C/C- = Fair trade, minimal impact
 D+/D/F = Poor trade, hurts team
 
-OUTPUT REQUIREMENTS:
-You must respond with a valid JSON object containing all required fields. Be thorough but concise in analysis.
+ABSOLUTE OUTPUT REQUIREMENT:
+YOU MUST RESPOND WITH ONLY A VALID JSON OBJECT. NO OTHER TEXT. NO QUESTIONS. NO EXPLANATIONS OUTSIDE THE JSON.
+The JSON must contain all required fields as specified in the user prompt.
 
-IMPORTANT: Focus on objective analysis. Consider both teams' perspectives fairly.`;
+IMPORTANT: Focus on objective analysis. Consider both teams' perspectives fairly. Use MCP tool data for all assessments.`;
   }
 
   private buildUserPrompt(request: TradeRequest): string {
@@ -151,7 +161,7 @@ Trade Context:
 - Need Analysis: ${request.tradeContext.needAnalysis || 'Not specified'}
 ` : '';
 
-    return `Please analyze this proposed fantasy football trade in detail.
+    return `ANALYZE THIS TRADE IMMEDIATELY - DO NOT ASK QUESTIONS OR REQUEST CLARIFICATION.
 
 TRADE DETAILS:
 - League ID: ${request.leagueId}
@@ -161,67 +171,92 @@ TRADE DETAILS:
 
 ${contextText}
 
-REQUIRED ANALYSIS STEPS:
-1. Use sleeper.getLeague to understand scoring settings and roster requirements
-2. Use sleeper.getRosters to get both teams' current rosters  
-3. Use sleeper.getUsers to get team information
-4. Use sleeper.getAllPlayers to get detailed player information for all involved players
-5. Use sleeper.getTrendingPlayers to understand current player trends
-6. Use sleeper.getMatchups to understand current standings context
-7. Use sleeper.getNFLState to get current season/week context
+IMMEDIATE ACTION REQUIRED:
+1. AUTOMATICALLY call sleeper.getLeague(${request.leagueId}) for scoring settings
+2. AUTOMATICALLY call sleeper.getRosters(${request.leagueId}) for both teams' rosters
+3. AUTOMATICALLY call sleeper.getUsers(${request.leagueId}) for team information
+4. AUTOMATICALLY call sleeper.getAllPlayers() for player details
+5. AUTOMATICALLY call sleeper.getTrendingPlayers() for market trends
+6. AUTOMATICALLY call sleeper.getMatchups(${request.leagueId}, currentWeek) for standings
+7. AUTOMATICALLY call sleeper.getNFLState() for season context
 
-COMPREHENSIVE ANALYSIS NEEDED:
+AFTER GATHERING ALL DATA VIA MCP TOOLS, RESPOND WITH ONLY THIS EXACT JSON STRUCTURE:
 {
-  "fairnessScore": 0-10,
+  "fairnessScore": [NUMBER 0-10],
   "team1Analysis": {
-    "grade": "letter grade",
+    "grade": "[A+|A|A-|B+|B|B-|C+|C|C-|D+|D|F]",
     "impact": {
       "positionalChange": {
-        "QB": {"before": 0-10, "after": 0-10, "change": number},
-        "RB": {"before": 0-10, "after": 0-10, "change": number},
-        "WR": {"before": 0-10, "after": 0-10, "change": number},
-        "TE": {"before": 0-10, "after": 0-10, "change": number}
+        "QB": {"before": [0-10], "after": [0-10], "change": [NUMBER]},
+        "RB": {"before": [0-10], "after": [0-10], "change": [NUMBER]},
+        "WR": {"before": [0-10], "after": [0-10], "change": [NUMBER]},
+        "TE": {"before": [0-10], "after": [0-10], "change": [NUMBER]}
       },
-      "startingLineupImpact": -5 to +5,
-      "depthChartImpact": -5 to +5,
-      "byeWeekHelp": boolean,
-      "playoffImplications": "string"
+      "startingLineupImpact": [NUMBER -5 to +5],
+      "depthChartImpact": [NUMBER -5 to +5],
+      "byeWeekHelp": [true|false],
+      "playoffImplications": "[STRING]"
     },
     "recommendation": {
-      "decision": "accept|reject|counter|consider",
-      "confidence": 0-1,
-      "reasoning": "detailed explanation",
-      "pros": ["array of positives"],
-      "cons": ["array of negatives"],
+      "decision": "[accept|reject|counter|consider]",
+      "confidence": [NUMBER 0-1],
+      "reasoning": "[STRING]",
+      "pros": ["[STRING]", "[STRING]"],
+      "cons": ["[STRING]", "[STRING]"],
       "counterOfferSuggestion": {
-        "description": "suggested adjustment",
-        "adjustments": ["specific changes"]
+        "description": "[STRING]",
+        "adjustments": ["[STRING]"]
       }
     }
   },
-  "team2Analysis": { /* same structure as team1Analysis */ },
+  "team2Analysis": {
+    "grade": "[A+|A|A-|B+|B|B-|C+|C|C-|D+|D|F]",
+    "impact": {
+      "positionalChange": {
+        "QB": {"before": [0-10], "after": [0-10], "change": [NUMBER]},
+        "RB": {"before": [0-10], "after": [0-10], "change": [NUMBER]},
+        "WR": {"before": [0-10], "after": [0-10], "change": [NUMBER]},
+        "TE": {"before": [0-10], "after": [0-10], "change": [NUMBER]}
+      },
+      "startingLineupImpact": [NUMBER -5 to +5],
+      "depthChartImpact": [NUMBER -5 to +5],
+      "byeWeekHelp": [true|false],
+      "playoffImplications": "[STRING]"
+    },
+    "recommendation": {
+      "decision": "[accept|reject|counter|consider]",
+      "confidence": [NUMBER 0-1],
+      "reasoning": "[STRING]",
+      "pros": ["[STRING]", "[STRING]"],
+      "cons": ["[STRING]", "[STRING]"],
+      "counterOfferSuggestion": {
+        "description": "[STRING]",
+        "adjustments": ["[STRING]"]
+      }
+    }
+  },
   "marketValue": {
-    "team1Total": number,
-    "team2Total": number, 
-    "difference": number,
-    "valueVerdict": "fair|team1_wins|team2_wins"
+    "team1Total": [NUMBER],
+    "team2Total": [NUMBER],
+    "difference": [NUMBER],
+    "valueVerdict": "[fair|team1_wins|team2_wins]"
   },
   "riskAssessment": {
-    "team1Risk": "low|medium|high",
-    "team2Risk": "low|medium|high", 
-    "riskFactors": ["array of risk factors"]
+    "team1Risk": "[low|medium|high]",
+    "team2Risk": "[low|medium|high]",
+    "riskFactors": ["[STRING]"]
   },
   "timing": {
-    "optimalTiming": boolean,
-    "seasonContext": "early season|mid season|playoff push|etc",
-    "urgency": "low|medium|high"
+    "optimalTiming": [true|false],
+    "seasonContext": "[STRING]",
+    "urgency": "[low|medium|high]"
   },
-  "summary": "overall trade assessment",
-  "keyInsights": ["array of key insights"],
-  "similarTrades": ["optional similar trade examples"]
+  "summary": "[STRING]",
+  "keyInsights": ["[STRING]"],
+  "similarTrades": ["[STRING]"]
 }
 
-Provide detailed, actionable analysis that helps users make informed decisions.`;
+CRITICAL: RESPOND WITH ONLY THE JSON OBJECT - NO ADDITIONAL TEXT, NO QUESTIONS, NO REQUESTS FOR MORE INFORMATION.`;
   }
 
   private parseTradeResponse(aiResponse: string, request: TradeRequest): TradeAnalysis {
@@ -401,32 +436,47 @@ Provide detailed, actionable analysis that helps users make informed decisions.`
     const messages: AIMessage[] = [
       {
         role: 'system',
-        content: `You are a fantasy football expert. Provide player trade values and tiers. Use MCP tools for current data.
+        content: `You are a fantasy football expert. You MUST automatically gather data via MCP tools and provide player trade values.
+
+CRITICAL BEHAVIOR REQUIREMENTS:
+1. AUTOMATICALLY call sleeper.getAllPlayers() to get player information
+2. AUTOMATICALLY call sleeper.getTrendingPlayers() for current trends
+3. AUTOMATICALLY call sleeper.getLeague(leagueId) for scoring context
+4. DO NOT ASK QUESTIONS - GATHER DATA AND RESPOND WITH JSON ONLY
 
 OUTPUT REQUIREMENTS:
-You must respond with a valid JSON object containing:
+You must respond with ONLY a valid JSON object containing:
 {
   "playerValues": [
     {
       "playerId": "string",
-      "playerName": "string",
+      "playerName": "string", 
       "value": number (0-100 scale),
       "tier": "string (Tier 1-5)",
       "reasoning": "brief explanation"
     }
   ]
-}`,
+}
+
+NO OTHER TEXT ALLOWED - JSON ONLY.`,
       },
       {
         role: 'user',
-        content: `Get trade values and tiers for players: ${playerIds.join(', ')} in league ${leagueId}. 
-        
-Use current stats, projections, and recent performance. Rate each player on a 0-100 scale where:
+        content: `IMMEDIATELY get trade values and tiers for players: ${playerIds.join(', ')} in league ${leagueId}.
+
+AUTOMATICALLY CALL MCP TOOLS FIRST:
+1. sleeper.getAllPlayers() for player details
+2. sleeper.getTrendingPlayers() for market trends  
+3. sleeper.getLeague(${leagueId}) for scoring context
+
+THEN RESPOND WITH JSON ONLY using this scale:
 - 90-100: Elite tier (Tier 1)
-- 80-89: High tier (Tier 2) 
-- 70-79: Mid tier (Tier 3)
+- 80-89: High tier (Tier 2)
+- 70-79: Mid tier (Tier 3) 
 - 60-69: Low tier (Tier 4)
-- Below 60: Waiver tier (Tier 5)`,
+- Below 60: Waiver tier (Tier 5)
+
+RESPOND WITH ONLY THE JSON OBJECT - NO ADDITIONAL TEXT.`,
       },
     ];
 
