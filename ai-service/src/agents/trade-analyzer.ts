@@ -162,13 +162,13 @@ TRADE DETAILS:
 ${contextText}
 
 REQUIRED ANALYSIS STEPS:
-1. Use get_league to understand scoring settings and roster requirements
-2. Use get_league_rosters to get both teams' current rosters  
-3. Use get_league_users to get team information
-4. Use get_players_nfl to get detailed player information for all involved players
-5. Use get_projections for rest-of-season outlook
-6. Use get_player_stats for recent performance and trends
-7. Use get_league_matchups to understand current standings context
+1. Use sleeper.getLeague to understand scoring settings and roster requirements
+2. Use sleeper.getRosters to get both teams' current rosters  
+3. Use sleeper.getUsers to get team information
+4. Use sleeper.getAllPlayers to get detailed player information for all involved players
+5. Use sleeper.getTrendingPlayers to understand current player trends
+6. Use sleeper.getMatchups to understand current standings context
+7. Use sleeper.getNFLState to get current season/week context
 
 COMPREHENSIVE ANALYSIS NEEDED:
 {
@@ -225,23 +225,56 @@ Provide detailed, actionable analysis that helps users make informed decisions.`
   }
 
   private parseTradeResponse(aiResponse: string, request: TradeRequest): TradeAnalysis {
-    try {
-      const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error('No JSON found in AI response');
-      }
+    console.log('Parsing AI response for trade analysis');
+    
+    const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      const error = 'No valid JSON found in AI response';
+      console.error('Parse error:', error);
+      console.error('AI Response:', aiResponse);
+      throw new Error(error);
+    }
 
-      const parsed = JSON.parse(jsonMatch[0]);
-      
-      // Validate and construct the response with fallbacks
-      return {
-        fairnessScore: this.clamp(parsed.fairnessScore || 5, 0, 10),
+    let parsed;
+    try {
+      // Strip comments before parsing JSON
+      const cleanedJson = this.stripJSONComments(jsonMatch[0]);
+      parsed = JSON.parse(cleanedJson);
+    } catch (parseError) {
+      const error = `Failed to parse JSON from AI response: ${parseError instanceof Error ? parseError.message : 'Unknown parse error'}`;
+      console.error('JSON Parse error:', error);
+      console.error('JSON content:', jsonMatch[0]);
+      throw new Error(error);
+    }
+    
+    // Validate required fields are present and valid
+    if (typeof parsed.fairnessScore !== 'number' || parsed.fairnessScore < 0 || parsed.fairnessScore > 10) {
+      const error = `Invalid fairnessScore: ${parsed.fairnessScore}. Must be a number between 0-10`;
+      console.error('Validation error:', error);
+      throw new Error(error);
+    }
+    
+    if (!parsed.team1Analysis || !parsed.team2Analysis) {
+      const error = 'Missing required team analysis data';
+      console.error('Validation error:', error);
+      throw new Error(error);
+    }
+    
+    if (!parsed.marketValue || typeof parsed.marketValue.team1Total !== 'number' || typeof parsed.marketValue.team2Total !== 'number') {
+      const error = 'Invalid or missing market value data';
+      console.error('Validation error:', error);
+      throw new Error(error);
+    }
+    
+    // Construct validated response
+    return {
+      fairnessScore: this.clamp(parsed.fairnessScore, 0, 10),
         team1Analysis: this.validateTeamAnalysis(parsed.team1Analysis),
         team2Analysis: this.validateTeamAnalysis(parsed.team2Analysis),
         marketValue: {
-          team1Total: parsed.marketValue?.team1Total || 0,
-          team2Total: parsed.marketValue?.team2Total || 0,
-          difference: parsed.marketValue?.difference || 0,
+          team1Total: parsed.marketValue.team1Total,
+          team2Total: parsed.marketValue.team2Total,
+          difference: parsed.marketValue.difference || (parsed.marketValue.team1Total - parsed.marketValue.team2Total),
           valueVerdict: ['fair', 'team1_wins', 'team2_wins'].includes(parsed.marketValue?.valueVerdict) 
             ? parsed.marketValue.valueVerdict : 'fair',
         },
@@ -264,48 +297,74 @@ Provide detailed, actionable analysis that helps users make informed decisions.`
         similarTrades: Array.isArray(parsed.similarTrades) ? parsed.similarTrades : undefined,
         lastUpdated: new Date(),
       };
-    } catch (error) {
-      console.error('Failed to parse trade response:', error);
-      
-      // Return fallback analysis
-      return this.createFallbackAnalysis(request);
-    }
   }
 
   private validateTeamAnalysis(teamData: any): TradeAnalysis['team1Analysis'] {
+    if (!teamData) {
+      throw new Error('Team analysis data is missing');
+    }
+    
     const validGrades = ['A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D+', 'D', 'F'];
     
+    if (!validGrades.includes(teamData.grade)) {
+      throw new Error(`Invalid grade: ${teamData.grade}. Must be one of: ${validGrades.join(', ')}`);
+    }
+    
+    if (!teamData.impact) {
+      throw new Error('Team impact data is missing');
+    }
+    
+    if (!teamData.recommendation) {
+      throw new Error('Team recommendation data is missing');
+    }
+    
+    const validDecisions = ['accept', 'reject', 'counter', 'consider'];
+    if (!validDecisions.includes(teamData.recommendation.decision)) {
+      throw new Error(`Invalid recommendation decision: ${teamData.recommendation.decision}. Must be one of: ${validDecisions.join(', ')}`);
+    }
+    
     return {
-      grade: validGrades.includes(teamData?.grade) ? teamData.grade : 'C',
+      grade: teamData.grade,
       impact: {
-        positionalChange: this.validatePositionalChange(teamData?.impact?.positionalChange),
-        startingLineupImpact: this.clamp(teamData?.impact?.startingLineupImpact || 0, -5, 5),
-        depthChartImpact: this.clamp(teamData?.impact?.depthChartImpact || 0, -5, 5),
-        byeWeekHelp: teamData?.impact?.byeWeekHelp || false,
-        playoffImplications: teamData?.impact?.playoffImplications || 'Minimal impact',
+        positionalChange: this.validatePositionalChange(teamData.impact.positionalChange),
+        startingLineupImpact: this.clamp(teamData.impact.startingLineupImpact || 0, -5, 5),
+        depthChartImpact: this.clamp(teamData.impact.depthChartImpact || 0, -5, 5),
+        byeWeekHelp: teamData.impact.byeWeekHelp || false,
+        playoffImplications: teamData.impact.playoffImplications || 'Minimal impact',
       },
       recommendation: {
-        decision: ['accept', 'reject', 'counter', 'consider'].includes(teamData?.recommendation?.decision)
-          ? teamData.recommendation.decision : 'consider',
-        confidence: this.clamp(teamData?.recommendation?.confidence || 0.5, 0, 1),
-        reasoning: teamData?.recommendation?.reasoning || 'Analysis incomplete',
-        pros: Array.isArray(teamData?.recommendation?.pros) ? teamData.recommendation.pros : [],
-        cons: Array.isArray(teamData?.recommendation?.cons) ? teamData.recommendation.cons : [],
-        counterOfferSuggestion: teamData?.recommendation?.counterOfferSuggestion,
+        decision: teamData.recommendation.decision,
+        confidence: this.clamp(teamData.recommendation.confidence || 0.5, 0, 1),
+        reasoning: teamData.recommendation.reasoning || 'Analysis incomplete',
+        pros: Array.isArray(teamData.recommendation.pros) ? teamData.recommendation.pros : [],
+        cons: Array.isArray(teamData.recommendation.cons) ? teamData.recommendation.cons : [],
+        counterOfferSuggestion: teamData.recommendation.counterOfferSuggestion,
       },
     };
   }
 
   private validatePositionalChange(posData: any): TradeImpact['positionalChange'] {
+    if (!posData) {
+      throw new Error('Positional change data is missing');
+    }
+    
     const positions = ['QB', 'RB', 'WR', 'TE'];
     const result: any = {};
     
     for (const pos of positions) {
-      const data = posData?.[pos];
+      const data = posData[pos];
+      if (!data) {
+        throw new Error(`Missing positional data for ${pos}`);
+      }
+      
+      if (typeof data.before !== 'number' || typeof data.after !== 'number') {
+        throw new Error(`Invalid positional data for ${pos}: before and after must be numbers`);
+      }
+      
       result[pos] = {
-        before: this.clamp(data?.before || 5, 0, 10),
-        after: this.clamp(data?.after || 5, 0, 10),
-        change: data?.change || 0,
+        before: this.clamp(data.before, 0, 10),
+        after: this.clamp(data.after, 0, 10),
+        change: data.change || (data.after - data.before),
       };
     }
     
@@ -316,55 +375,23 @@ Provide detailed, actionable analysis that helps users make informed decisions.`
     return Math.max(min, Math.min(max, value));
   }
 
-  private createFallbackAnalysis(request: TradeRequest): TradeAnalysis {
-    const fallbackTeamAnalysis = {
-      grade: 'C' as const,
-      impact: {
-        positionalChange: {
-          QB: { before: 5, after: 5, change: 0 },
-          RB: { before: 5, after: 5, change: 0 },
-          WR: { before: 5, after: 5, change: 0 },
-          TE: { before: 5, after: 5, change: 0 },
-        },
-        startingLineupImpact: 0,
-        depthChartImpact: 0,
-        byeWeekHelp: false,
-        playoffImplications: 'Analysis unavailable',
-      },
-      recommendation: {
-        decision: 'consider' as const,
-        confidence: 0.1,
-        reasoning: 'Analysis failed - manual review required',
-        pros: [],
-        cons: ['AI analysis unavailable'],
-      },
-    };
-
-    return {
-      fairnessScore: 5,
-      team1Analysis: fallbackTeamAnalysis,
-      team2Analysis: fallbackTeamAnalysis,
-      marketValue: {
-        team1Total: 0,
-        team2Total: 0,
-        difference: 0,
-        valueVerdict: 'fair',
-      },
-      riskAssessment: {
-        team1Risk: 'medium',
-        team2Risk: 'medium',
-        riskFactors: ['Analysis unavailable'],
-      },
-      timing: {
-        optimalTiming: false,
-        seasonContext: 'Unknown',
-        urgency: 'medium',
-      },
-      summary: 'Trade analysis failed - please try again',
-      keyInsights: ['AI analysis is currently unavailable'],
-      lastUpdated: new Date(),
-    };
+  /**
+   * Strip single-line and multi-line comments from JSON string
+   * This helps handle AI responses that include comments in JSON
+   */
+  private stripJSONComments(jsonString: string): string {
+    // Remove single-line comments (// comment)
+    let cleaned = jsonString.replace(/\/\/.*$/gm, '');
+    
+    // Remove multi-line comments (/* comment */)
+    cleaned = cleaned.replace(/\/\*[\s\S]*?\*\//g, '');
+    
+    // Remove trailing commas that might be left after comment removal
+    cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
+    
+    return cleaned;
   }
+
 
   async getTradeValueComparison(
     playerIds: string[],
@@ -413,12 +440,7 @@ Use current stats, projections, and recent performance. Rate each player on a 0-
       return this.parseTradeValueResponse(response.content, playerIds);
     } catch (error) {
       console.error('Error getting trade value comparison:', error);
-      // Return fallback values
-      return playerIds.map(playerId => ({
-        playerId,
-        value: 50,
-        tier: 'Tier 3',
-      }));
+      throw new Error(`Trade value comparison failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -426,48 +448,71 @@ Use current stats, projections, and recent performance. Rate each player on a 0-
     aiResponse: string, 
     playerIds: string[]
   ): { playerId: string; value: number; tier: string }[] {
-    try {
-      // Try to extract JSON from the response
-      const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error('No JSON found in AI response');
-      }
-
-      const parsed = JSON.parse(jsonMatch[0]);
-      
-      // Validate required fields
-      if (!parsed.playerValues || !Array.isArray(parsed.playerValues)) {
-        throw new Error('Invalid playerValues format');
-      }
-
-      // Map the response to expected format
-      const result = parsed.playerValues.map((player: any) => ({
-        playerId: player.playerId || 'unknown',
-        value: typeof player.value === 'number' ? Math.max(0, Math.min(100, player.value)) : 50,
-        tier: player.tier || 'Tier 3',
-      }));
-
-      // Ensure we have values for all requested players
-      const resultPlayerIds = result.map((r: any) => r.playerId);
-      const missingPlayers = playerIds.filter(id => !resultPlayerIds.includes(id));
-      
-      for (const playerId of missingPlayers) {
-        result.push({
-          playerId,
-          value: 50,
-          tier: 'Tier 3',
-        });
-      }
-
-      return result;
-    } catch (error) {
-      console.error('Error parsing trade value response:', error);
-      // Return fallback values for all players
-      return playerIds.map(playerId => ({
-        playerId,
-        value: 50,
-        tier: 'Tier 3',
-      }));
+    console.log('Parsing trade value response');
+    
+    // Try to extract JSON from the response
+    const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      const error = 'No valid JSON found in trade value AI response';
+      console.error('Parse error:', error);
+      console.error('AI Response:', aiResponse);
+      throw new Error(error);
     }
+
+    let parsed;
+    try {
+      // Strip comments before parsing JSON
+      const cleanedJson = this.stripJSONComments(jsonMatch[0]);
+      parsed = JSON.parse(cleanedJson);
+    } catch (parseError) {
+      const error = `Failed to parse JSON from trade value response: ${parseError instanceof Error ? parseError.message : 'Unknown parse error'}`;
+      console.error('JSON Parse error:', error);
+      console.error('JSON content:', jsonMatch[0]);
+      throw new Error(error);
+    }
+    
+    // Validate required fields
+    if (!parsed.playerValues || !Array.isArray(parsed.playerValues)) {
+      const error = 'Invalid playerValues format - must be an array';
+      console.error('Validation error:', error);
+      throw new Error(error);
+    }
+    
+    if (parsed.playerValues.length === 0) {
+      const error = 'No player values returned in response';
+      console.error('Validation error:', error);
+      throw new Error(error);
+    }
+
+    // Validate each player entry
+    const result = parsed.playerValues.map((player: any) => {
+      if (!player.playerId) {
+        throw new Error('Player entry missing playerId');
+      }
+      
+      if (typeof player.value !== 'number' || player.value < 0 || player.value > 100) {
+        throw new Error(`Invalid value for player ${player.playerId}: ${player.value}. Must be a number between 0-100`);
+      }
+      
+      if (!player.tier || typeof player.tier !== 'string') {
+        throw new Error(`Invalid tier for player ${player.playerId}: ${player.tier}. Must be a string`);
+      }
+      
+      return {
+        playerId: player.playerId,
+        value: Math.max(0, Math.min(100, player.value)),
+        tier: player.tier,
+      };
+    });
+
+    // Ensure we have values for all requested players
+    const resultPlayerIds = result.map((r: any) => r.playerId);
+    const missingPlayers = playerIds.filter(id => !resultPlayerIds.includes(id));
+    
+    if (missingPlayers.length > 0) {
+      throw new Error(`Missing trade values for players: ${missingPlayers.join(', ')}`);
+    }
+
+    return result;
   }
 }

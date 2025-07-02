@@ -11,6 +11,8 @@ export class MCPClient {
   private client: AxiosInstance;
   private config: MCPClientConfig;
   private availableTools: MCPTool[] = [];
+  private toolNameMapping: Map<string, string> = new Map(); // AI provider name -> MCP name
+  private reverseToolNameMapping: Map<string, string> = new Map(); // MCP name -> AI provider name
 
   constructor(config: MCPClientConfig) {
     this.config = config;
@@ -79,24 +81,34 @@ export class MCPClient {
       const response = await this.client.get('/openrpc.json');
       const openRpcDoc = response.data;
 
-      this.availableTools = openRpcDoc.methods?.map((method: any) => ({
-        name: method.name,
-        description: method.summary || method.description || `Execute ${method.name}`,
-        inputSchema: {
-          type: 'object',
-          properties: method.params?.reduce((props: any, param: any) => {
-            props[param.name] = {
-              type: param.schema?.type || 'string',
-              description: param.description || '',
-              ...(param.schema?.enum && { enum: param.schema.enum }),
-            };
-            return props;
-          }, {}) || {},
-          required: method.params?.filter((p: any) => p.required).map((p: any) => p.name) || [],
-        },
-      })) || [];
+      this.availableTools = openRpcDoc.methods?.map((method: any) => {
+        const mcpToolName = method.name;
+        const aiProviderToolName = this.convertToAIProviderName(mcpToolName);
+        
+        // Store mapping for later conversion
+        this.toolNameMapping.set(aiProviderToolName, mcpToolName);
+        this.reverseToolNameMapping.set(mcpToolName, aiProviderToolName);
+        
+        return {
+          name: aiProviderToolName, // Use AI provider compatible name
+          description: method.summary || method.description || `Execute ${method.name}`,
+          inputSchema: {
+            type: 'object' as const,
+            properties: method.params?.reduce((props: any, param: any) => {
+              props[param.name] = {
+                type: param.schema?.type || 'string',
+                description: param.description || '',
+                ...(param.schema?.enum && { enum: param.schema.enum }),
+              };
+              return props;
+            }, {}) || {},
+            required: method.params?.filter((p: any) => p.required).map((p: any) => p.name) || [],
+          },
+        };
+      }) || [];
 
-      console.log('Available MCP tools:', this.availableTools.map(t => t.name));
+      console.log('Available MCP tools (AI provider names):', this.availableTools.map(t => t.name));
+      console.log('Tool name mappings:', Object.fromEntries(this.toolNameMapping));
     } catch (error) {
       console.error('Failed to load MCP tools:', error);
       // Fallback to hardcoded tools based on your MCP server
@@ -104,22 +116,37 @@ export class MCPClient {
     }
   }
 
+  /**
+   * Convert MCP tool name to AI provider compatible name
+   * Replace dots with underscores to match pattern ^[a-zA-Z0-9_-]+$
+   */
+  private convertToAIProviderName(mcpToolName: string): string {
+    return mcpToolName.replace(/\./g, '_');
+  }
+
+  /**
+   * Convert AI provider tool name back to MCP tool name
+   */
+  private convertToMCPName(aiProviderToolName: string): string {
+    return this.toolNameMapping.get(aiProviderToolName) || aiProviderToolName;
+  }
+
   private getDefaultSleeperTools(): MCPTool[] {
-    return [
+    const defaultTools = [
       {
-        name: 'get_nfl_state',
+        name: 'sleeper.getNFLState',
         description: 'Get current NFL state including week and season information',
         inputSchema: {
-          type: 'object',
+          type: 'object' as const,
           properties: {},
           required: [],
         },
       },
       {
-        name: 'get_user',
-        description: 'Get user information by username or user ID',
+        name: 'sleeper.getUserByUsername',
+        description: 'Get user information by username',
         inputSchema: {
-          type: 'object',
+          type: 'object' as const,
           properties: {
             username: { type: 'string', description: 'Sleeper username' },
           },
@@ -127,111 +154,124 @@ export class MCPClient {
         },
       },
       {
-        name: 'get_user_leagues',
+        name: 'sleeper.getUserById',
+        description: 'Get user information by user ID',
+        inputSchema: {
+          type: 'object' as const,
+          properties: {
+            userId: { type: 'string', description: 'Sleeper user ID' },
+          },
+          required: ['userId'],
+        },
+      },
+      {
+        name: 'sleeper.getLeaguesForUser',
         description: 'Get all leagues for a specific user and season',
         inputSchema: {
-          type: 'object',
+          type: 'object' as const,
           properties: {
-            user_id: { type: 'string', description: 'Sleeper user ID' },
+            userId: { type: 'string', description: 'Sleeper user ID' },
             sport: { type: 'string', description: 'Sport (nfl, nba, etc.)', enum: ['nfl'] },
             season: { type: 'string', description: 'Season year (e.g., "2024")' },
           },
-          required: ['user_id', 'sport', 'season'],
+          required: ['userId', 'sport', 'season'],
         },
       },
       {
-        name: 'get_league',
+        name: 'sleeper.getLeague',
         description: 'Get detailed league information',
         inputSchema: {
-          type: 'object',
+          type: 'object' as const,
           properties: {
-            league_id: { type: 'string', description: 'Sleeper league ID' },
+            leagueId: { type: 'string', description: 'Sleeper league ID' },
           },
-          required: ['league_id'],
+          required: ['leagueId'],
         },
       },
       {
-        name: 'get_league_rosters',
+        name: 'sleeper.getRosters',
         description: 'Get all rosters in a league',
         inputSchema: {
-          type: 'object',
+          type: 'object' as const,
           properties: {
-            league_id: { type: 'string', description: 'Sleeper league ID' },
+            leagueId: { type: 'string', description: 'Sleeper league ID' },
           },
-          required: ['league_id'],
+          required: ['leagueId'],
         },
       },
       {
-        name: 'get_league_users',
+        name: 'sleeper.getUsers',
         description: 'Get all users in a league',
         inputSchema: {
-          type: 'object',
+          type: 'object' as const,
           properties: {
-            league_id: { type: 'string', description: 'Sleeper league ID' },
+            leagueId: { type: 'string', description: 'Sleeper league ID' },
           },
-          required: ['league_id'],
+          required: ['leagueId'],
         },
       },
       {
-        name: 'get_league_matchups',
+        name: 'sleeper.getMatchups',
         description: 'Get matchups for a specific week in a league',
         inputSchema: {
-          type: 'object',
+          type: 'object' as const,
           properties: {
-            league_id: { type: 'string', description: 'Sleeper league ID' },
+            leagueId: { type: 'string', description: 'Sleeper league ID' },
             week: { type: 'number', description: 'Week number (1-18)' },
           },
-          required: ['league_id', 'week'],
+          required: ['leagueId', 'week'],
         },
       },
       {
-        name: 'get_players_nfl',
+        name: 'sleeper.getAllPlayers',
         description: 'Get all NFL players data',
         inputSchema: {
-          type: 'object',
-          properties: {},
+          type: 'object' as const,
+          properties: {
+            sport: { type: 'string', description: 'Sport (default: nfl)', enum: ['nfl'] },
+          },
           required: [],
         },
       },
       {
-        name: 'get_player_stats',
-        description: 'Get player statistics for a specific season and week',
+        name: 'sleeper.getTrendingPlayers',
+        description: 'Get trending players (adds/drops)',
         inputSchema: {
-          type: 'object',
+          type: 'object' as const,
           properties: {
-            sport: { type: 'string', description: 'Sport (nfl)', enum: ['nfl'] },
-            season: { type: 'string', description: 'Season year' },
-            season_type: { type: 'string', description: 'regular or post', enum: ['regular', 'post'] },
-            week: { type: 'number', description: 'Week number (optional for season stats)' },
-            position: { type: 'string', description: 'Player position filter (optional)' },
+            sport: { type: 'string', description: 'Sport (default: nfl)', enum: ['nfl'] },
+            type: { type: 'string', description: 'Trending type: add or drop', enum: ['add', 'drop'] },
+            lookback: { type: 'number', description: 'Lookback hours (1-48)' },
+            limit: { type: 'number', description: 'Result limit (1-200)' },
           },
-          required: ['sport', 'season', 'season_type'],
-        },
-      },
-      {
-        name: 'get_projections',
-        description: 'Get player projections for a specific season and week',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            sport: { type: 'string', description: 'Sport (nfl)', enum: ['nfl'] },
-            season: { type: 'string', description: 'Season year' },
-            week: { type: 'number', description: 'Week number' },
-          },
-          required: ['sport', 'season', 'week'],
+          required: [],
         },
       },
     ];
+
+    // Create mappings for default tools
+    return defaultTools.map(tool => {
+      const aiProviderToolName = this.convertToAIProviderName(tool.name);
+      this.toolNameMapping.set(aiProviderToolName, tool.name);
+      this.reverseToolNameMapping.set(tool.name, aiProviderToolName);
+      
+      return {
+        ...tool,
+        name: aiProviderToolName, // Use AI provider compatible name
+      };
+    });
   }
 
   async callTool(toolCall: MCPToolCall): Promise<MCPResponse> {
     try {
-      console.log(`Calling MCP tool: ${toolCall.name} with args:`, toolCall.arguments);
+      // Convert AI provider tool name back to MCP tool name
+      const mcpToolName = this.convertToMCPName(toolCall.name);
+      console.log(`Calling MCP tool: ${mcpToolName} (from AI provider name: ${toolCall.name}) with args:`, toolCall.arguments);
       
       const response = await this.client.post('/rpc', {
         jsonrpc: '2.0',
         id: Date.now(),
-        method: toolCall.name,
+        method: mcpToolName, // Use original MCP tool name
         params: toolCall.arguments,
       });
 
@@ -276,8 +316,8 @@ export class MCPClient {
       return response.status === 200;
     } catch {
       try {
-        // Fallback: try calling get_nfl_state as a health check
-        const result = await this.callTool({ name: 'get_nfl_state', arguments: {} });
+        // Fallback: try calling sleeper_getNFLState as a health check
+        const result = await this.callTool({ name: 'sleeper_getNFLState', arguments: {} });
         return !result.isError;
       } catch {
         return false;

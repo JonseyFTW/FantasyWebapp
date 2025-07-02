@@ -215,13 +215,12 @@ LINEUP DETAILS:
 ${preferencesText}${constraintsText}
 
 REQUIRED ANALYSIS STEPS:
-1. Use get_league with the League ID to understand scoring settings and roster requirements
-2. Use get_league_rosters with the League ID to get current roster and opponent information
-3. Use get_players_nfl to get detailed player information
-4. Use get_projections for rest-of-season and weekly projections
-5. Use get_player_stats for recent performance trends
-6. Use get_matchups to understand opponent context and game environment
-7. Use get_nfl_state for current week context and bye weeks
+1. Use sleeper.getLeague with the League ID to understand scoring settings and roster requirements
+2. Use sleeper.getRosters with the League ID to get current roster and opponent information
+3. Use sleeper.getAllPlayers to get detailed player information
+4. Use sleeper.getTrendingPlayers to understand current player popularity
+5. Use sleeper.getMatchups to understand opponent context and game environment
+6. Use sleeper.getNFLState for current week context and bye weeks
 
 COMPREHENSIVE LINEUP OPTIMIZATION NEEDED:
 {
@@ -356,7 +355,7 @@ Be thorough but actionable in your recommendations.`;
         throw new Error('No JSON found in AI response');
       }
 
-      const parsed = JSON.parse(jsonMatch[0]);
+      const parsed = JSON.parse(this.stripJSONComments(jsonMatch[0]));
       
       return {
         optimalLineup: this.validateLineupScenario(parsed.optimalLineup),
@@ -551,9 +550,9 @@ Provide detailed projections including:
 - Start/sit recommendations with confidence
 
 Use get_league with league ID ${leagueId} to understand league context.
-Use get_players_nfl to get player information.
-Use get_player_stats for recent performance trends.
-Use get_projections for weekly projections.
+Use sleeper.getAllPlayers to get player information.
+Use sleeper.getTrendingPlayers for current player trends.
+Use sleeper.getAllPlayers for player information and positions.
 
 Rank by expected fantasy points for week ${week}.`,
       },
@@ -628,9 +627,9 @@ Provide top 15-20 players with:
 - Start/sit tier classifications
 
 Use get_league with league ID ${leagueId} to understand league context.
-Use get_players_nfl to get player information.
-Use get_player_stats for recent performance trends.
-Use get_projections for weekly projections.
+Use sleeper.getAllPlayers to get player information.
+Use sleeper.getTrendingPlayers for current player trends.
+Use sleeper.getAllPlayers for player information and positions.
 
 Rank by expected fantasy points for week ${week}.`,
       },
@@ -662,7 +661,7 @@ Rank by expected fantasy points for week ${week}.`,
         throw new Error('No JSON found in AI response');
       }
 
-      const parsed = JSON.parse(jsonMatch[0]);
+      const parsed = JSON.parse(this.stripJSONComments(jsonMatch[0]));
       
       // Validate required fields
       if (!parsed.playerProjections || !Array.isArray(parsed.playerProjections)) {
@@ -699,5 +698,22 @@ Rank by expected fantasy points for week ${week}.`,
       console.error('Error parsing player projections response:', error);
       return [];
     }
+  }
+
+  /**
+   * Strip single-line and multi-line comments from JSON string
+   * This helps handle AI responses that include comments in JSON
+   */
+  private stripJSONComments(jsonString: string): string {
+    // Remove single-line comments (// comment)
+    let cleaned = jsonString.replace(/\/\/.*$/gm, '');
+    
+    // Remove multi-line comments (/* comment */)
+    cleaned = cleaned.replace(/\/\*[\s\S]*?\*\//g, '');
+    
+    // Remove trailing commas that might be left after comment removal
+    cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
+    
+    return cleaned;
   }
 }

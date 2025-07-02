@@ -169,10 +169,10 @@ ${preferencesText}
 REQUIRED ANALYSIS STEPS:
 1. Use get_league to understand scoring settings and roster requirements
 2. Use get_league_rosters to get my current roster
-3. Use get_players_nfl to get player information
-4. Use get_projections for current week projections
+3. Use sleeper.getAllPlayers to get player information
+4. Use sleeper.getTrendingPlayers to understand current player popularity
 5. Use get_league_matchups to understand opponent matchups
-6. Use get_player_stats for recent performance trends
+6. Use sleeper.getMatchups to understand weekly matchup context
 
 Please provide detailed start/sit recommendations with optimal lineup construction. Consider:
 - Projected points vs. actual scoring potential
@@ -193,7 +193,7 @@ Focus on maximizing my team's scoring potential for this specific week.`;
         throw new Error('No JSON found in AI response');
       }
 
-      const parsed = JSON.parse(jsonMatch[0]);
+      const parsed = JSON.parse(this.stripJSONComments(jsonMatch[0]));
       
       // Validate required fields
       if (!parsed.recommendations || !Array.isArray(parsed.recommendations)) {
@@ -294,7 +294,7 @@ Focus on maximizing my team's scoring potential for this specific week.`;
     const jsonMatch = response.content.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       try {
-        const parsed = JSON.parse(jsonMatch[0]);
+        const parsed = JSON.parse(this.stripJSONComments(jsonMatch[0]));
         return {
           playerId: parsed.playerId || playerId,
           playerName: parsed.playerName || 'Unknown Player',
@@ -331,5 +331,22 @@ Focus on maximizing my team's scoring potential for this specific week.`;
       },
       riskFactors: ['Analysis unavailable'],
     };
+  }
+
+  /**
+   * Strip single-line and multi-line comments from JSON string
+   * This helps handle AI responses that include comments in JSON
+   */
+  private stripJSONComments(jsonString: string): string {
+    // Remove single-line comments (// comment)
+    let cleaned = jsonString.replace(/\/\/.*$/gm, '');
+    
+    // Remove multi-line comments (/* comment */)
+    cleaned = cleaned.replace(/\/\*[\s\S]*?\*\//g, '');
+    
+    // Remove trailing commas that might be left after comment removal
+    cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
+    
+    return cleaned;
   }
 }

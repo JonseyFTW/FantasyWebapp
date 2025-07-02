@@ -176,12 +176,12 @@ ROSTER ANALYSIS:
 ${needsText}${budgetText}${preferencesText}
 
 REQUIRED ANALYSIS STEPS:
-1. Use get_league with the League ID to understand league settings, roster sizes, and waiver rules
-2. Use get_league_rosters with the League ID to see all team rosters and identify available players
-3. Use get_players_nfl to get comprehensive player information
-4. Use get_player_stats to analyze recent usage and performance trends
-5. Use get_projections for upcoming week and rest-of-season outlook
-6. Use get_nfl_state to understand current week and season context
+1. Use sleeper.getLeague with the League ID to understand league settings, roster sizes, and waiver rules
+2. Use sleeper.getRosters with the League ID to see all team rosters and identify available players
+3. Use sleeper.getAllPlayers to get comprehensive player information
+4. Use sleeper.getTrendingPlayers to see currently popular adds/drops
+5. Use sleeper.getTransactions to see recent league activity
+6. Use sleeper.getNFLState to understand current week and season context
 
 COMPREHENSIVE WAIVER ANALYSIS NEEDED:
 {
@@ -259,7 +259,7 @@ Provide actionable recommendations with specific bid amounts and drop suggestion
         throw new Error('No JSON found in AI response');
       }
 
-      const parsed = JSON.parse(jsonMatch[0]);
+      const parsed = JSON.parse(this.stripJSONComments(jsonMatch[0]));
       
       return {
         topPickups: this.validatePickups(parsed.topPickups || []),
@@ -411,8 +411,8 @@ Get current player data including:
 - Fantasy relevance and upside potential
 
 Use get_league with league ID ${leagueId} to understand league context.
-Use get_players_nfl to get player information.
-Use get_player_stats for recent performance data.
+Use sleeper.getAllPlayers to get player information.
+Use sleeper.getTrendingPlayers for current player popularity trends.
 
 Provide specific pickup recommendation with priority ranking.`,
       },
@@ -445,7 +445,7 @@ Provide specific pickup recommendation with priority ranking.`,
         throw new Error('No JSON found in AI response');
       }
 
-      const parsed = JSON.parse(jsonMatch[0]);
+      const parsed = JSON.parse(this.stripJSONComments(jsonMatch[0]));
       
       // Validate required fields
       if (!parsed.pickup || typeof parsed.pickup !== 'object') {
@@ -569,8 +569,8 @@ Focus on:
 - Injury/rotation concerns
 
 Use get_league with league ID ${leagueId} to understand league context.
-Use get_players_nfl to get player information.
-Use get_player_stats for recent performance trends.
+Use sleeper.getAllPlayers to get player information.
+Use sleeper.getTrendingPlayers for recent pickup trends.
 
 Rank by expected weekly performance for this position.`,
       },
@@ -603,7 +603,7 @@ Rank by expected weekly performance for this position.`,
         throw new Error('No JSON found in AI response');
       }
 
-      const parsed = JSON.parse(jsonMatch[0]);
+      const parsed = JSON.parse(this.stripJSONComments(jsonMatch[0]));
       
       // Validate required fields
       if (!parsed.streamingOptions || !Array.isArray(parsed.streamingOptions)) {
@@ -643,5 +643,22 @@ Rank by expected weekly performance for this position.`,
       // Return empty array as fallback
       return [];
     }
+  }
+
+  /**
+   * Strip single-line and multi-line comments from JSON string
+   * This helps handle AI responses that include comments in JSON
+   */
+  private stripJSONComments(jsonString: string): string {
+    // Remove single-line comments (// comment)
+    let cleaned = jsonString.replace(/\/\/.*$/gm, '');
+    
+    // Remove multi-line comments (/* comment */)
+    cleaned = cleaned.replace(/\/\*[\s\S]*?\*\//g, '');
+    
+    // Remove trailing commas that might be left after comment removal
+    cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
+    
+    return cleaned;
   }
 }
