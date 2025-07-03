@@ -485,6 +485,196 @@ export class LeagueService {
       return [];
     }
   }
+
+  async getPlayerStats(playerIds: string[], leagueId: string, weeks?: number[]) {
+    try {
+      console.log(`Getting player stats for ${playerIds.length} players`);
+      
+      // Get all players data
+      let allPlayers;
+      try {
+        allPlayers = await this.sleeperAPI.getAllPlayers();
+      } catch (directAPIError) {
+        console.warn('Direct API failed for players, trying MCP:', directAPIError);
+        allPlayers = await this.callMCPTool('sleeper.getAllPlayers', {});
+      }
+
+      // Get league info for scoring settings
+      const leagueInfo = await this.callMCPTool('sleeper.getLeague', { leagueId });
+      
+      // Calculate weeks to analyze (default to current season weeks 1-14)
+      const currentWeek = leagueInfo?.current_week || 14;
+      const weeksToAnalyze = weeks || Array.from({ length: currentWeek }, (_, i) => i + 1);
+
+      const playerStatsData = [];
+      
+      for (const playerId of playerIds) {
+        const player = (allPlayers as any)[playerId];
+        if (!player) continue;
+
+        const playerName = `${player.first_name || ''} ${player.last_name || ''}`.trim() || player.full_name || 'Unknown Player';
+        
+        let weeklyStats = [];
+        let totalPoints = 0;
+        let gamesPlayed = 0;
+        let projectionDifferences = [];
+        
+        // Get stats for each week
+        for (const week of weeksToAnalyze) {
+          try {
+            // Try to get actual stats for this week (this might not be available in Sleeper API)
+            // For now, we'll simulate some data based on player position and tier
+            const mockStats = this.generateMockWeeklyStats(player, week);
+            weeklyStats.push(mockStats);
+            
+            if (mockStats.actual > 0) {
+              totalPoints += mockStats.actual;
+              gamesPlayed++;
+              projectionDifferences.push(mockStats.actual - mockStats.projected);
+            }
+          } catch (error) {
+            console.warn(`Error getting week ${week} stats for player ${playerId}:`, error);
+          }
+        }
+
+        // Calculate projection accuracy metrics
+        const avgDifference = projectionDifferences.length > 0 
+          ? projectionDifferences.reduce((sum, diff) => sum + diff, 0) / projectionDifferences.length 
+          : 0;
+        
+        const exceeded = projectionDifferences.filter(diff => diff > 2).length;
+        const hit = projectionDifferences.filter(diff => Math.abs(diff) <= 2).length;
+        const fellShort = projectionDifferences.filter(diff => diff < -2).length;
+        
+        const projectionAccuracy = gamesPlayed > 0 
+          ? Math.round((hit / gamesPlayed) * 100) 
+          : 0;
+
+        // Calculate consistency (inverse of standard deviation)
+        const pointsArray = weeklyStats.map(w => w.actual).filter(p => p > 0);
+        const avgPoints = pointsArray.length > 0 ? pointsArray.reduce((sum, p) => sum + p, 0) / pointsArray.length : 0;
+        const variance = pointsArray.length > 0 
+          ? pointsArray.reduce((sum, p) => sum + Math.pow(p - avgPoints, 2), 0) / pointsArray.length 
+          : 0;
+        const stdDev = Math.sqrt(variance);
+        const consistency = avgPoints > 0 ? Math.max(0, 100 - (stdDev / avgPoints) * 100) : 0;
+
+        // Determine trend (last 3 weeks vs previous 3 weeks)
+        const recentWeeks = weeklyStats.slice(-3).map(w => w.actual).filter(p => p > 0);
+        const previousWeeks = weeklyStats.slice(-6, -3).map(w => w.actual).filter(p => p > 0);
+        
+        let trend = 'steady';
+        if (recentWeeks.length >= 2 && previousWeeks.length >= 2) {
+          const recentAvg = recentWeeks.reduce((sum, p) => sum + p, 0) / recentWeeks.length;
+          const previousAvg = previousWeeks.reduce((sum, p) => sum + p, 0) / previousWeeks.length;
+          const trendChange = (recentAvg - previousAvg) / previousAvg;
+          
+          if (trendChange > 0.15) trend = 'up';
+          else if (trendChange < -0.15) trend = 'down';
+        }
+
+        playerStatsData.push({
+          playerId,
+          playerName,
+          position: player.position || 'N/A',
+          team: player.team || 'FA',
+          totalPoints,
+          gamesPlayed,
+          projectionAccuracy,
+          consistency: Math.round(consistency),
+          trend,
+          projectionStats: {
+            exceeded,
+            hit,
+            fellShort,
+            avgDifference
+          }
+        });
+      }
+
+      // Create chart data for PlayerPerformanceChart component
+      const chartData = playerStatsData.map(player => ({
+        player_id: player.playerId,
+        player_name: player.playerName,
+        position: player.position,
+        team: player.team,
+        avg_fantasy_points_per_game: player.totalPoints / Math.max(player.gamesPlayed, 1),
+        consistency_score: player.consistency,
+        trends: weeksToAnalyze.map(week => ({
+          week,
+          season: 2024,
+          fantasy_points: this.getWeeklyPoints(player.playerId, week, playerStatsData)
+        })),
+        weekly_projections: weeksToAnalyze.map(week => ({
+          week,
+          projected_points: this.getWeeklyProjection(player.playerId, week),
+          confidence: 75
+        })),
+        metrics: {
+          upward_trend: player.trend as 'up' | 'down' | 'steady',
+          position_rank: this.getPositionRank(player.position),
+          projection_confidence: player.projectionAccuracy
+        }
+      }));
+
+      return {
+        players: playerStatsData,
+        chartData
+      };
+    } catch (error) {
+      console.error('Error getting player stats:', error);
+      throw new Error(`Failed to get player stats: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  private generateMockWeeklyStats(player: any, week: number) {
+    // Generate realistic mock data based on player position and some randomness
+    const position = player.position || 'RB';
+    const basePoints = this.getBasePointsByPosition(position);
+    const variance = basePoints * 0.4; // 40% variance
+    
+    // Add some weekly volatility
+    const weeklyMultiplier = 0.8 + (Math.random() * 0.4); // 0.8 to 1.2 multiplier
+    const actual = Math.max(0, basePoints + (Math.random() - 0.5) * variance) * weeklyMultiplier;
+    const projected = basePoints + (Math.random() - 0.5) * (variance * 0.3); // Projections are less volatile
+    
+    return {
+      week,
+      actual: Math.round(actual * 10) / 10,
+      projected: Math.round(projected * 10) / 10
+    };
+  }
+
+  private getBasePointsByPosition(position: string): number {
+    switch (position) {
+      case 'QB': return 18;
+      case 'RB': return 12;
+      case 'WR': return 11;
+      case 'TE': return 8;
+      case 'K': return 7;
+      case 'DEF': return 8;
+      default: return 10;
+    }
+  }
+
+  private getWeeklyPoints(playerId: string, week: number, playerStatsData: any[]): number {
+    // Simple mock implementation - in reality this would come from actual game data
+    const player = playerStatsData.find(p => p.playerId === playerId);
+    if (!player) return 0;
+    
+    const basePoints = this.getBasePointsByPosition(player.position);
+    return Math.max(0, basePoints + (Math.random() - 0.5) * basePoints * 0.6);
+  }
+
+  private getWeeklyProjection(playerId: string, week: number): number {
+    // Mock projection data
+    return Math.round((10 + Math.random() * 15) * 10) / 10;
+  }
+
+  private getPositionRank(position: string): number {
+    // Mock position ranking
+    return Math.floor(Math.random() * 30) + 1;
+  }
 }
 
 export const leagueService = new LeagueService();

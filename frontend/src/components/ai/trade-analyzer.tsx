@@ -34,9 +34,41 @@ export function TradeAnalyzer({ leagueId, userId, week, availableTeams }: TradeA
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [playerStats, setPlayerStats] = useState<any>(null);
+  const [loadingStats, setLoadingStats] = useState(false);
 
   const team1Data = availableTeams.find(t => t.userId === team1);
   const team2Data = availableTeams.find(t => t.userId === team2);
+
+  const fetchPlayerStats = async (playerIds: string[]) => {
+    setLoadingStats(true);
+    try {
+      // Fetch player stats from backend
+      const response = await fetch(`/api/players/stats`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          playerIds,
+          leagueId,
+          weeks: Array.from({ length: week }, (_, i) => i + 1), // All weeks up to current
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch player stats');
+      }
+
+      const stats = await response.json();
+      setPlayerStats(stats);
+    } catch (err) {
+      console.error('Error fetching player stats:', err);
+      // Don't set error for stats - it's supplementary data
+    } finally {
+      setLoadingStats(false);
+    }
+  };
 
   const handleAnalyze = async () => {
     if (!team1 || !team2 || team1Players.length === 0 || team2Players.length === 0) {
@@ -53,24 +85,29 @@ export function TradeAnalyzer({ leagueId, userId, week, availableTeams }: TradeA
     setError(null);
 
     try {
-      const request: TradeRequest = {
-        leagueId,
-        week,
-        team1Players: {
-          give: team1Players,
-          receive: team2Players,
-        },
-        team2Players: {
-          give: team2Players,
-          receive: team1Players,
-        },
-        userPreferences: {
-          riskTolerance: 'moderate',
-        },
-      };
+      const allPlayerIds = [...team1Players, ...team2Players];
+      
+      // Fetch both trade analysis and player stats in parallel
+      const [tradeResult] = await Promise.all([
+        aiClient.analyzeTrade({
+          leagueId,
+          week,
+          team1Players: {
+            give: team1Players,
+            receive: team2Players,
+          },
+          team2Players: {
+            give: team2Players,
+            receive: team1Players,
+          },
+          userPreferences: {
+            riskTolerance: 'moderate',
+          },
+        }),
+        fetchPlayerStats(allPlayerIds),
+      ]);
 
-      const result = await aiClient.analyzeTrade(request);
-      setAnalysis(result);
+      setAnalysis(tradeResult);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Trade analysis failed');
     } finally {
@@ -524,8 +561,143 @@ export function TradeAnalyzer({ leagueId, userId, week, availableTeams }: TradeA
             </CardContent>
           </Card>
 
-          {/* Player Performance Charts */}
-          {analysis.playerData && Object.keys(analysis.playerData).length > 0 && (
+          {/* Player Performance Stats & Charts */}
+          {playerStats && (
+            <div className="space-y-4">
+              {/* Player Stats Summary Table */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>Player Performance Summary</CardTitle>
+                      <CardDescription>
+                        Season stats, weekly performance, and projection accuracy
+                      </CardDescription>
+                    </div>
+                    {loadingStats && (
+                      <div className="flex items-center space-x-2 text-sm text-gray-500">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Loading stats...</span>
+                      </div>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-2">Player</th>
+                          <th className="text-right py-2">Avg PPG</th>
+                          <th className="text-right py-2">Total Pts</th>
+                          <th className="text-right py-2">Games</th>
+                          <th className="text-right py-2">Proj Accuracy</th>
+                          <th className="text-right py-2">Consistency</th>
+                          <th className="text-right py-2">Trend</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {playerStats.players?.map((player: any) => {
+                          const avgPoints = player.totalPoints / Math.max(player.gamesPlayed, 1);
+                          const projectionAccuracy = player.projectionAccuracy || 0;
+                          const consistency = player.consistency || 0;
+                          
+                          return (
+                            <tr key={player.playerId} className="border-b">
+                              <td className="py-3">
+                                <div>
+                                  <div className="font-medium">{player.playerName}</div>
+                                  <div className="text-xs text-gray-500">{player.position} - {player.team}</div>
+                                </div>
+                              </td>
+                              <td className="text-right py-3 font-medium">{avgPoints.toFixed(1)}</td>
+                              <td className="text-right py-3">{player.totalPoints.toFixed(1)}</td>
+                              <td className="text-right py-3">{player.gamesPlayed}</td>
+                              <td className="text-right py-3">
+                                <Badge variant={projectionAccuracy >= 80 ? 'default' : projectionAccuracy >= 60 ? 'secondary' : 'destructive'}>
+                                  {projectionAccuracy.toFixed(0)}%
+                                </Badge>
+                              </td>
+                              <td className="text-right py-3">
+                                <Badge variant={consistency >= 70 ? 'default' : consistency >= 50 ? 'secondary' : 'destructive'}>
+                                  {consistency.toFixed(0)}%
+                                </Badge>
+                              </td>
+                              <td className="text-right py-3">
+                                {player.trend === 'up' && <TrendingUp className="h-4 w-4 text-green-600 inline" />}
+                                {player.trend === 'down' && <TrendingDown className="h-4 w-4 text-red-600 inline" />}
+                                {player.trend === 'steady' && <span className="text-gray-500">—</span>}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Weekly Performance Chart */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Weekly Performance vs Projections</CardTitle>
+                  <CardDescription>
+                    Actual points scored (solid line) vs projected points (dashed line) by week
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <PlayerPerformanceChart 
+                    players={playerStats.chartData || []}
+                    showProjections={true}
+                    showComparison={true}
+                    height={400}
+                  />
+                </CardContent>
+              </Card>
+
+              {/* Projection Accuracy Analysis */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Projection Accuracy Analysis</CardTitle>
+                  <CardDescription>
+                    How often each player hits, exceeds, or falls short of projections
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {playerStats.players?.map((player: any) => (
+                      <div key={player.playerId} className="border rounded-lg p-4">
+                        <div className="font-medium mb-2">{player.playerName}</div>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span>Exceeded Projection:</span>
+                            <span className="text-green-600 font-medium">{player.projectionStats?.exceeded || 0} times</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Hit Projection (±2):</span>
+                            <span className="text-blue-600 font-medium">{player.projectionStats?.hit || 0} times</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Fell Short:</span>
+                            <span className="text-red-600 font-medium">{player.projectionStats?.fellShort || 0} times</span>
+                          </div>
+                          <div className="flex justify-between border-t pt-2">
+                            <span>Avg Difference:</span>
+                            <span className={`font-medium ${(player.projectionStats?.avgDifference || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {(player.projectionStats?.avgDifference || 0) >= 0 ? '+' : ''}{(player.projectionStats?.avgDifference || 0).toFixed(1)} pts
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Player Performance Charts (fallback for AI analysis data) */}
+          {!playerStats && analysis.playerData && Object.keys(analysis.playerData).length > 0 && (
             <Card>
               <CardHeader>
                 <CardTitle>Player Performance Analysis</CardTitle>
